@@ -5,6 +5,7 @@ Configura la instancia de FastAPI con:
 - Ciclo de vida (lifespan) para inicialización y limpieza.
 - Middleware CORS parametrizado desde la configuración.
 - Middleware de captura global de excepciones.
+- Gestión del motor de base de datos asíncrono.
 - Endpoint de salud (/health).
 """
 
@@ -16,6 +17,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.core.config import obtener_configuracion
+from app.core.database import motor_asincrono
 from app.core.excepciones.middleware import MiddlewareExcepciones
 from app.core.logging import configurar_logging, obtener_logger
 from app.esquemas.salud import RespuestaSalud
@@ -30,6 +32,7 @@ async def ciclo_de_vida(app: FastAPI) -> AsyncIterator[None]:
     Gestiona el ciclo de vida de la aplicación.
 
     Ejecuta lógica de inicialización al arrancar y de limpieza al detenerse.
+    Incluye la gestión del motor de base de datos asíncrono.
 
     Args:
         app: Instancia de la aplicación FastAPI.
@@ -41,8 +44,11 @@ async def ciclo_de_vida(app: FastAPI) -> AsyncIterator[None]:
         _config.app_nombre,
         _config.app_version,
     )
+    _logger.info("Motor de base de datos configurado: %s", _config.bd_url)
     yield
     # --- Cierre ---
+    await motor_asincrono.dispose()
+    _logger.info("Motor de base de datos cerrado.")
     _logger.info("Aplicación detenida correctamente.")
 
 
