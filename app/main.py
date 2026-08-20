@@ -16,6 +16,7 @@ from datetime import UTC, datetime
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
+from app.api.v1.router import api_v1_router
 from app.core.config import obtener_configuracion
 from app.core.database import motor_asincrono
 from app.core.excepciones.middleware import MiddlewareExcepciones
@@ -71,6 +72,9 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# --- Routers de la API ---
+app.include_router(api_v1_router)
 
 
 # --- Endpoint de salud ---

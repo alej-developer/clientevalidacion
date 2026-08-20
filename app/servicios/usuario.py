@@ -259,12 +259,15 @@ class ServicioUsuario:
             )
 
         # Verificar unicidad del nuevo email si se está cambiando
-        if datos.email is not None and datos.email != usuario.email:
-            if await self._repositorio.existe_email(datos.email):
-                raise ConflictoError(
-                    mensaje=f"El email '{datos.email}' ya está en uso por otro usuario.",
-                    detalles={"campo": "email", "valor": datos.email},
-                )
+        if (
+            datos.email is not None
+            and datos.email != usuario.email
+            and await self._repositorio.existe_email(datos.email)
+        ):
+            raise ConflictoError(
+                mensaje=f"El email '{datos.email}' ya está en uso por otro usuario.",
+                detalles={"campo": "email", "valor": datos.email},
+            )
 
         # Preparar datos para la actualización
         datos_actualizacion: dict[str, str | bool | None] = {}
