@@ -1,0 +1,44 @@
+# === Python ===
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+*.egg
+*.egg-info/
+dist/
+build/
+eggs/
+*.whl
+
+# === Entorno virtual ===
+.venv/
+venv/
+env/
+ENV/
+
+# === Variables de entorno ===
+.env
+.env.*
+!.env.example
+
+# === IDE ===
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# === Testing ===
+.pytest_cache/
+.coverage
+htmlcov/
+.mypy_cache/
+.ruff_cache/
+
+# === Alembic ===
+alembic/versions/*.pyc
+
+# === OS ===
+.DS_Store
+Thumbs.db
+desktop.ini
