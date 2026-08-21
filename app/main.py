@@ -7,6 +7,7 @@ Configura la instancia de FastAPI con:
 - Middleware de captura global de excepciones.
 - Gestión del motor de base de datos asíncrono.
 - Endpoint de salud (/health).
+- Metadatos OpenAPI enriquecidos (tags, contacto, licencia).
 """
 
 from collections.abc import AsyncIterator
@@ -25,6 +26,35 @@ from app.esquemas.salud import RespuestaSalud
 
 _config = obtener_configuracion()
 _logger = obtener_logger("main")
+
+# --- Metadatos de tags para la documentación OpenAPI ---
+_OPENAPI_TAGS = [
+    {
+        "name": "Sistema",
+        "description": (
+            "Endpoints de operación del sistema. Incluye el **health check** "
+            "para verificar que el servicio está en línea y su versión actual."
+        ),
+    },
+    {
+        "name": "Autenticación",
+        "description": (
+            "Gestión de sesiones mediante **JWT Bearer tokens**. "
+            "Usa `POST /login` para obtener un token y `GET /yo` para verificar "
+            "la identidad del usuario autenticado. "
+            "El token se envía en la cabecera: `Authorization: Bearer <token>`"
+        ),
+    },
+    {
+        "name": "Usuarios",
+        "description": (
+            "CRUD completo de usuarios con **soft delete** y restauración. "
+            "Las operaciones de escritura (PATCH, DELETE, restaurar) requieren "
+            "autenticación JWT. Los usuarios eliminados no se borran físicamente "
+            "y pueden recuperarse con el endpoint `/restaurar`."
+        ),
+    },
+]
 
 
 @asynccontextmanager
@@ -57,8 +87,21 @@ app = FastAPI(
     title=_config.app_nombre,
     version=_config.app_version,
     description=_config.app_descripcion,
+    summary="API REST profesional de gestión de usuarios con autenticación JWT y soft delete.",
     debug=_config.app_debug,
     lifespan=ciclo_de_vida,
+    openapi_tags=_OPENAPI_TAGS,
+    contact={
+        "name": "Alejandro — alej-developer",
+        "url": "https://github.com/alej-developer/clientevalidacion",
+        "email": "alejandropm32@gmail.com",
+    },
+    license_info={
+        "name": "MIT License",
+        "url": "https://opensource.org/licenses/MIT",
+    },
+    docs_url="/docs",
+    redoc_url="/redoc",
 )
 
 # --- Middleware de excepciones globales ---
@@ -83,7 +126,11 @@ app.include_router(api_v1_router)
     response_model=RespuestaSalud,
     tags=["Sistema"],
     summary="Verificación de salud del servicio",
-    description="Devuelve el estado actual, la versión y la marca de tiempo del servicio.",
+    description=(
+        "Retorna el estado operativo actual del servicio, su versión y "
+        "la marca de tiempo del servidor. Útil para health checks de "
+        "balanceadores de carga y sistemas de monitoreo."
+    ),
 )
 async def verificar_salud() -> RespuestaSalud:
     """Retorna el estado de salud actual de la aplicación."""

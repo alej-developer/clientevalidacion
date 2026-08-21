@@ -23,9 +23,18 @@ class Configuracion(BaseSettings):
     )
 
     # --- Aplicación ---
-    app_nombre: str = "Mi API FastAPI"
-    app_version: str = "0.1.0"
-    app_descripcion: str = "API REST profesional con FastAPI"
+    app_nombre: str = "ClienteValidacion API"
+    app_version: str = "0.2.0"
+    app_descripcion: str = (
+        "## ClienteValidacion — API REST profesional con FastAPI\n\n"
+        "Gestión de usuarios con autenticación JWT y soft delete.\n\n"
+        "### Características\n"
+        "- 🔐 **JWT Bearer Authentication** con `python-jose`\n"
+        "- 🗑️ **Soft Delete** — borrado lógico con restauración\n"
+        "- 📄 **Paginación** y filtros por estado activo\n"
+        "- 🏗️ **Clean Architecture** — API → Servicio → Repositorio → Modelo\n"
+        "- 🔄 **Alembic Migrations** versionadas y asíncronas\n"
+    )
     app_debug: bool = False
 
     # --- Base de datos ---
