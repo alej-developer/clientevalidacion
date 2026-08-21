@@ -87,8 +87,8 @@ class RepositorioBase(Generic[T]):
             Tupla con (lista de registros, total de registros activos).
         """
         consulta = select(self.modelo).where(self._filtro_no_eliminado())
-        consulta_conteo = select(func.count()).select_from(self.modelo).where(
-            self._filtro_no_eliminado()
+        consulta_conteo = (
+            select(func.count()).select_from(self.modelo).where(self._filtro_no_eliminado())
         )
 
         # Aplicar filtros dinámicos adicionales

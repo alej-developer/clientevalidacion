@@ -279,9 +279,7 @@ class ServicioUsuario:
         if datos.esta_activo is not None:
             datos_actualizacion["esta_activo"] = datos.esta_activo
         if datos.contrasena is not None:
-            datos_actualizacion["contrasena_hash"] = self._generar_hash_contrasena(
-                datos.contrasena
-            )
+            datos_actualizacion["contrasena_hash"] = self._generar_hash_contrasena(datos.contrasena)
 
         if not datos_actualizacion:
             _logger.debug("Actualización sin cambios para usuario ID %s", usuario_id)
@@ -341,9 +339,7 @@ class ServicioUsuario:
             )
 
         usuario_restaurado = await self._repositorio.restaurar(usuario)
-        _logger.info(
-            "Usuario restaurado: %s (ID: %s)", usuario_restaurado.email, usuario_id
-        )
+        _logger.info("Usuario restaurado: %s (ID: %s)", usuario_restaurado.email, usuario_id)
         return RespuestaUsuario.model_validate(usuario_restaurado)
 
     async def verificar_credenciales(self, email: str, contrasena: str) -> Usuario:

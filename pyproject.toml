@@ -1,9 +1,9 @@
 [project]
-name = "fastapi-api-profesional"
-version = "0.1.0"
+name = "clientevalidacion"
+version = "0.2.0"
 description = "API REST profesional construida con FastAPI, arquitectura limpia y DDD simplificado"
 readme = "README.md"
-requires-python = ">=3.12"
+requires-python = ">=3.11"
 dependencies = [
     "fastapi>=0.115.0",
     "uvicorn[standard]>=0.30.0",
@@ -32,16 +32,21 @@ python_files = ["test_*.py"]
 python_functions = ["test_*"]
 
 [tool.mypy]
-python_version = "3.12"
+python_version = "3.11"
 strict = true
 warn_return_any = true
 warn_unused_configs = true
 disallow_untyped_defs = true
 
 [tool.ruff]
-target-version = "py312"
+target-version = "py311"
 line-length = 100
+# Excluir archivos autogenerados por Alembic
+exclude = ["alembic/versions/*.py"]
 
 [tool.ruff.lint]
 select = ["E", "F", "W", "I", "N", "UP", "B", "SIM"]
-ignore = ["N818", "UP046"]
+# N818: exception naming (usamos nombres en espanol)
+# B904: raise without from inside except (usamos excepciones propias)
+# SIM108: ternary operator preference
+ignore = ["N818", "B904", "SIM108"]
