@@ -18,6 +18,7 @@ from sqlalchemy.ext.asyncio import (
 )
 
 from app.core.database import obtener_db
+from app.core.limiter import limiter
 from app.db.registro import ModeloBase
 from app.main import app
 
@@ -39,9 +40,10 @@ FabricaSesionesPruebas = async_sessionmaker(
 @pytest.fixture(autouse=True)
 async def preparar_base_datos() -> AsyncIterator[None]:
     """
-    Crea las tablas en la base de datos en memoria antes de cada test
-    y las destruye al finalizar para garantizar aislamiento total.
+    Crea las tablas en la base de datos en memoria antes de cada test,
+    reinicia el estado de rate limiting y destruye las tablas al finalizar.
     """
+    limiter.reset()
     async with MOTOR_PRUEBAS.begin() as conexion:
         await conexion.run_sync(ModeloBase.metadata.create_all)
 
@@ -49,6 +51,7 @@ async def preparar_base_datos() -> AsyncIterator[None]:
 
     async with MOTOR_PRUEBAS.begin() as conexion:
         await conexion.run_sync(ModeloBase.metadata.drop_all)
+    limiter.reset()
 
 
 @pytest.fixture

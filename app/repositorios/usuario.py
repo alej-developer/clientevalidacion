@@ -5,7 +5,7 @@ Hereda del RepositorioBase y añade consultas optimizadas
 específicas del dominio de usuarios.
 """
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.logging import obtener_logger
@@ -94,6 +94,85 @@ class RepositorioUsuario(RepositorioBase[Usuario]):
             por_pagina=por_pagina,
             filtros={"esta_activo": True},
         )
+
+    async def buscar_usuarios(
+        self,
+        q: str | None = None,
+        esta_activo: bool | None = None,
+        ordenar_por: str = "creado_en",
+        orden: str = "desc",
+        pagina: int = 1,
+        por_pagina: int = 20,
+    ) -> tuple[list[Usuario], int]:
+        """
+        Búsqueda avanzada de usuarios con filtros por texto, estado y ordenación.
+
+        Excluye usuarios eliminados lógicamente.
+
+        Args:
+            q: Término de búsqueda parcial en nombre o email.
+            esta_activo: Filtrar por estado activo (True), inactivo (False) o ambos (None).
+            ordenar_por: Campo por el que ordenar ('creado_en', 'nombre', 'email').
+            orden: Dirección ('asc' o 'desc').
+            pagina: Número de página (base 1).
+            por_pagina: Cantidad de resultados por página.
+
+        Retorna:
+            Tupla (lista de usuarios coincidentes, total de registros).
+        """
+        from sqlalchemy import or_
+
+        consulta = select(Usuario).where(self._filtro_no_eliminado())
+        consulta_conteo = (
+            select(func.count(Usuario.id)).select_from(Usuario).where(self._filtro_no_eliminado())
+        )
+
+        # Filtro de búsqueda por texto en nombre o email
+        if q and q.strip():
+            patron = f"%{q.strip().lower()}%"
+            condicion_q = or_(
+                Usuario.nombre.ilike(patron),
+                Usuario.email.ilike(patron),
+            )
+            consulta = consulta.where(condicion_q)
+            consulta_conteo = consulta_conteo.where(condicion_q)
+
+        # Filtro por estado activo
+        if esta_activo is not None:
+            consulta = consulta.where(Usuario.esta_activo == esta_activo)
+            consulta_conteo = consulta_conteo.where(Usuario.esta_activo == esta_activo)
+
+        # Total
+        resultado_conteo = await self.sesion.execute(consulta_conteo)
+        total = resultado_conteo.scalar_one()
+
+        # Ordenación
+        columnas_permitidas = {
+            "creado_en": Usuario.creado_en,
+            "actualizado_en": Usuario.actualizado_en,
+            "nombre": Usuario.nombre,
+            "email": Usuario.email,
+        }
+        columna = columnas_permitidas.get(ordenar_por, Usuario.creado_en)
+        if orden.lower() == "asc":
+            consulta = consulta.order_by(columna.asc())
+        else:
+            consulta = consulta.order_by(columna.desc())
+
+        # Paginación
+        desplazamiento = (pagina - 1) * por_pagina
+        consulta = consulta.offset(desplazamiento).limit(por_pagina)
+
+        resultado = await self.sesion.execute(consulta)
+        usuarios = list(resultado.scalars().all())
+
+        _logger.debug(
+            "Búsqueda avanzada de usuarios: q='%s', activo=%s, total=%d",
+            q,
+            esta_activo,
+            total,
+        )
+        return usuarios, total
 
     async def obtener_eliminado_por_id(self, usuario_id: object) -> Usuario | None:
         """

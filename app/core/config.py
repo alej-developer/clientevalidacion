@@ -26,16 +26,21 @@ class Configuracion(BaseSettings):
     app_nombre: str = "ClienteValidacion API"
     app_version: str = "0.2.0"
     app_descripcion: str = (
-        "## ClienteValidacion — API REST profesional con FastAPI\n\n"
-        "Gestión de usuarios con autenticación JWT y soft delete.\n\n"
-        "### Características\n"
-        "- 🔐 **JWT Bearer Authentication** con `python-jose`\n"
-        "- 🗑️ **Soft Delete** — borrado lógico con restauración\n"
-        "- 📄 **Paginación** y filtros por estado activo\n"
-        "- 🏗️ **Clean Architecture** — API → Servicio → Repositorio → Modelo\n"
-        "- 🔄 **Alembic Migrations** versionadas y asíncronas\n"
+        "## ClienteValidacion - API REST profesional con FastAPI\n\n"
+        "Gestion de usuarios con autenticacion JWT, soft delete y rate limiting.\n\n"
+        "### Caracteristicas\n"
+        "- Autenticacion JWT con python-jose\n"
+        "- Soft Delete con restauracion de registros\n"
+        "- Paginacion, ordenacion y filtros de busqueda avanzada\n"
+        "- Rate Limiting con slowapi\n"
+        "- Arquitectura limpia en capas\n"
+        "- Migraciones asincronas con Alembic\n"
     )
     app_debug: bool = False
+
+    # --- Rate Limiting ---
+    limite_por_defecto: str = "60/minute"
+    limite_auth: str = "10/minute"
 
     # --- Base de datos ---
     bd_url: str = "sqlite+aiosqlite:///./desarrollo.db"

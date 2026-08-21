@@ -7,11 +7,12 @@ GET  /api/v1/auth/yo     → Retorna el usuario autenticado actual.
 
 from typing import Annotated
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Request
 from fastapi.security import OAuth2PasswordRequestForm
 
 from app.api.deps import obtener_servicio_usuario, obtener_usuario_actual
 from app.core.config import obtener_configuracion
+from app.core.limiter import limiter
 from app.core.seguridad import crear_access_token
 from app.esquemas.token import Token
 from app.esquemas.usuario import RespuestaUsuario
@@ -28,14 +29,18 @@ _config = obtener_configuracion()
     summary="Iniciar sesión",
     description=(
         "Autentica al usuario con email y contraseña. "
-        "Devuelve un JWT de acceso con duración configurable."
+        "Devuelve un JWT de acceso con duración configurable. "
+        "Incluye limitación de tasa (rate limiting) para prevenir ataques de fuerza bruta."
     ),
     responses={
         200: {"description": "Login exitoso, token JWT generado"},
         401: {"description": "Credenciales inválidas o cuenta inactiva"},
+        429: {"description": "Demasiadas peticiones consecutivas (Rate Limit)"},
     },
 )
+@limiter.limit(_config.limite_auth)
 async def login(
+    request: Request,
     formulario: Annotated[OAuth2PasswordRequestForm, Depends()],
     servicio: Annotated[ServicioUsuario, Depends(obtener_servicio_usuario)],
 ) -> Token:

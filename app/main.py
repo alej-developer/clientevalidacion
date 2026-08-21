@@ -14,13 +14,16 @@ from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 from datetime import UTC, datetime
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
+from slowapi.errors import RateLimitExceeded
 
 from app.api.v1.router import api_v1_router
 from app.core.config import obtener_configuracion
 from app.core.database import motor_asincrono
 from app.core.excepciones.middleware import MiddlewareExcepciones
+from app.core.limiter import limiter
 from app.core.logging import configurar_logging, obtener_logger
 from app.esquemas.salud import RespuestaSalud
 
@@ -32,26 +35,26 @@ _OPENAPI_TAGS = [
     {
         "name": "Sistema",
         "description": (
-            "Endpoints de operación del sistema. Incluye el **health check** "
-            "para verificar que el servicio está en línea y su versión actual."
+            "Endpoints de operacion del sistema. Incluye el health check "
+            "para verificar que el servicio esta en linea y su version actual."
         ),
     },
     {
         "name": "Autenticación",
         "description": (
-            "Gestión de sesiones mediante **JWT Bearer tokens**. "
-            "Usa `POST /login` para obtener un token y `GET /yo` para verificar "
+            "Gestion de sesiones mediante tokens JWT Bearer. "
+            "Usa POST /login para obtener un token y GET /yo para verificar "
             "la identidad del usuario autenticado. "
-            "El token se envía en la cabecera: `Authorization: Bearer <token>`"
+            "El token se envia en la cabecera: Authorization: Bearer <token>"
         ),
     },
     {
         "name": "Usuarios",
         "description": (
-            "CRUD completo de usuarios con **soft delete** y restauración. "
+            "CRUD completo de usuarios con soft delete, restauracion y filtros avanzados. "
             "Las operaciones de escritura (PATCH, DELETE, restaurar) requieren "
-            "autenticación JWT. Los usuarios eliminados no se borran físicamente "
-            "y pueden recuperarse con el endpoint `/restaurar`."
+            "autenticacion JWT. Los usuarios eliminados no se borran fisicamente "
+            "y pueden recuperarse con el endpoint /restaurar."
         ),
     },
 ]
@@ -87,12 +90,12 @@ app = FastAPI(
     title=_config.app_nombre,
     version=_config.app_version,
     description=_config.app_descripcion,
-    summary="API REST profesional de gestión de usuarios con autenticación JWT y soft delete.",
+    summary=("API REST profesional de gestión de usuarios con JWT, soft delete y rate limiting."),
     debug=_config.app_debug,
     lifespan=ciclo_de_vida,
     openapi_tags=_OPENAPI_TAGS,
     contact={
-        "name": "Alejandro — alej-developer",
+        "name": "Alejandro - alej-developer",
         "url": "https://github.com/alej-developer/clientevalidacion",
         "email": "alejandropm32@gmail.com",
     },
@@ -103,6 +106,26 @@ app = FastAPI(
     docs_url="/docs",
     redoc_url="/redoc",
 )
+
+# --- Estado de Rate Limiter ---
+app.state.limiter = limiter
+
+
+@app.exception_handler(RateLimitExceeded)
+async def _manejador_limite_peticiones(
+    _request: Request,
+    exc: RateLimitExceeded,
+) -> JSONResponse:
+    """Manejador personalizado para exceso de límite de peticiones (HTTP 429)."""
+    return JSONResponse(
+        status_code=429,
+        content={
+            "exito": False,
+            "error": "Demasiadas peticiones",
+            "detalles": {"detalle": f"Límite de peticiones excedido: {exc.detail}"},
+        },
+    )
+
 
 # --- Middleware de excepciones globales ---
 app.add_middleware(MiddlewareExcepciones)

@@ -52,10 +52,13 @@ async def crear_usuario(
     response_model=RespuestaListaUsuarios,
     status_code=status.HTTP_200_OK,
     summary="Listar usuarios paginados",
-    description="Devuelve un listado paginado de usuarios registrados en el sistema.",
+    description=(
+        "Devuelve un listado paginado de usuarios con soporte para búsqueda por texto "
+        "(nombre o email), filtrado por estado de activación y ordenación personalizada."
+    ),
     responses={
         200: {"description": "Lista de usuarios recuperada exitosamente"},
-        422: {"description": "Parámetros de paginación inválidos"},
+        422: {"description": "Parámetros de consulta o paginación inválidos"},
     },
 )
 async def listar_usuarios(
@@ -68,16 +71,37 @@ async def listar_usuarios(
         int,
         Query(ge=1, le=100, description="Cantidad de registros por página (1-100)"),
     ] = 20,
-    solo_activos: Annotated[
-        bool,
-        Query(description="Filtrar solo usuarios con cuentas activas"),
-    ] = False,
+    q: Annotated[
+        str | None,
+        Query(
+            description="Búsqueda por texto en nombre o email",
+            min_length=1,
+            max_length=100,
+        ),
+    ] = None,
+    esta_activo: Annotated[
+        bool | None,
+        Query(description="Filtrar por estado activo (True), inactivo (False) o ambos (None)"),
+    ] = None,
+    ordenar_por: Annotated[
+        str,
+        Query(
+            description="Campo para ordenar resultados (creado_en, actualizado_en, nombre, email)"
+        ),
+    ] = "creado_en",
+    orden: Annotated[
+        str,
+        Query(description="Dirección de la ordenación ('asc' o 'desc')", pattern="^(asc|desc)$"),
+    ] = "desc",
 ) -> RespuestaListaUsuarios:
-    """Devuelve la lista paginada de usuarios."""
+    """Devuelve la lista paginada y filtrada de usuarios."""
     return await servicio.listar_usuarios(
         pagina=pagina,
         por_pagina=por_pagina,
-        solo_activos=solo_activos,
+        q=q,
+        esta_activo=esta_activo,
+        ordenar_por=ordenar_por,
+        orden=orden,
     )
 
 

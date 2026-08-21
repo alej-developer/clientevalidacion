@@ -183,20 +183,28 @@ class ServicioUsuario:
         pagina: int = 1,
         por_pagina: int = 20,
         solo_activos: bool = False,
+        q: str | None = None,
+        esta_activo: bool | None = None,
+        ordenar_por: str = "creado_en",
+        orden: str = "desc",
     ) -> RespuestaListaUsuarios:
         """
-        Lista usuarios con paginación.
+        Lista usuarios con paginación, filtros de búsqueda y ordenación.
 
         Args:
             pagina: Número de página (mínimo 1).
             por_pagina: Elementos por página (máximo 100).
-            solo_activos: Si es True, filtra solo usuarios con cuentas activas.
+            solo_activos: Compatibilidad hacia atrás (si True, fuerza esta_activo=True).
+            q: Término de búsqueda parcial en nombre o email.
+            esta_activo: Filtrar por estado activo/inactivo (True/False/None).
+            ordenar_por: Campo de orden ('creado_en', 'nombre', 'email', 'actualizado_en').
+            orden: Dirección del orden ('asc' o 'desc').
 
         Retorna:
             Esquema de respuesta con la lista paginada de usuarios.
 
         Raises:
-            ValidacionError: Si los parámetros de paginación son inválidos.
+            ValidacionError: Si los parámetros de paginación o filtrado son inválidos.
         """
         if pagina < 1:
             raise ValidacionError(
@@ -209,16 +217,31 @@ class ServicioUsuario:
                 detalles={"campo": "por_pagina", "valor": por_pagina},
             )
 
-        if solo_activos:
-            usuarios, total = await self._repositorio.listar_activos(
-                pagina=pagina,
-                por_pagina=por_pagina,
+        campos_validos_orden = {"creado_en", "actualizado_en", "nombre", "email"}
+        if ordenar_por not in campos_validos_orden:
+            opciones = ", ".join(sorted(campos_validos_orden))
+            raise ValidacionError(
+                mensaje=f"Campo de ordenación '{ordenar_por}' no válido. Opciones: {opciones}.",
+                detalles={"campo": "ordenar_por", "valor": ordenar_por},
             )
-        else:
-            usuarios, total = await self._repositorio.listar_paginado(
-                pagina=pagina,
-                por_pagina=por_pagina,
+
+        if orden.lower() not in {"asc", "desc"}:
+            raise ValidacionError(
+                mensaje="La dirección de ordenación debe ser 'asc' o 'desc'.",
+                detalles={"campo": "orden", "valor": orden},
             )
+
+        # Resolver filtro de activo
+        activo_filtro = True if solo_activos else esta_activo
+
+        usuarios, total = await self._repositorio.buscar_usuarios(
+            q=q,
+            esta_activo=activo_filtro,
+            ordenar_por=ordenar_por,
+            orden=orden,
+            pagina=pagina,
+            por_pagina=por_pagina,
+        )
 
         return RespuestaListaUsuarios(
             elementos=[RespuestaUsuario.model_validate(u) for u in usuarios],

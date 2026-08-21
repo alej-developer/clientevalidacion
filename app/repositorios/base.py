@@ -72,9 +72,11 @@ class RepositorioBase(Generic[T]):
         pagina: int = 1,
         por_pagina: int = 20,
         filtros: dict[str, Any] | None = None,
+        ordenar_por: str = "creado_en",
+        orden: str = "desc",
     ) -> tuple[list[T], int]:
         """
-        Lista registros activos con paginación y filtros opcionales.
+        Lista registros activos con paginación, filtros y ordenación.
 
         Excluye automáticamente los registros con soft delete aplicado.
 
@@ -82,6 +84,8 @@ class RepositorioBase(Generic[T]):
             pagina: Número de página (empezando desde 1).
             por_pagina: Cantidad de registros por página.
             filtros: Diccionario de filtros {nombre_columna: valor}.
+            ordenar_por: Nombre de la columna para ordenar.
+            orden: Dirección de orden ('asc' o 'desc').
 
         Retorna:
             Tupla con (lista de registros, total de registros activos).
@@ -102,6 +106,14 @@ class RepositorioBase(Generic[T]):
         # Obtener total de registros
         resultado_conteo = await self.sesion.execute(consulta_conteo)
         total = resultado_conteo.scalar_one()
+
+        # Aplicar ordenación
+        if hasattr(self.modelo, ordenar_por):
+            columna_orden = getattr(self.modelo, ordenar_por)
+            if orden.lower() == "asc":
+                consulta = consulta.order_by(columna_orden.asc())
+            else:
+                consulta = consulta.order_by(columna_orden.desc())
 
         # Aplicar paginación
         desplazamiento = (pagina - 1) * por_pagina

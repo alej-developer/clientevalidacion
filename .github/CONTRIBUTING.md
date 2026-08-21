@@ -1,107 +1,84 @@
-# Guía de Contribución
+# Guia de Contribucion
 
-¡Gracias por tu interés en contribuir a **clientevalidacion**! 🎉
-Sigue estas pautas para mantener la calidad y consistencia del proyecto.
+Pautas para contribuir al proyecto manteniendo calidad, estilo y consistencia.
 
 ---
 
-## 🚀 Flujo de trabajo
+## Flujo de Trabajo
 
-1. **Fork** del repositorio y clona tu fork
-2. Crea una rama descriptiva desde `main`:
+1. Realizar un Fork del repositorio y clonar la rama de trabajo.
+2. Crear una rama descriptiva desde `main`:
    ```bash
    git checkout -b feat/nombre-de-la-funcionalidad
    # o
    git checkout -b fix/descripcion-del-bug
    ```
-3. Haz tus cambios con commits atómicos y bien descritos
-4. Asegúrate de que **todos los tests pasen** y añade nuevos si es necesario
-5. Abre un **Pull Request** hacia `main` con una descripción clara
+3. Realizar los cambios con commits atomicos y bien documentados.
+4. Asegurar que todos los tests pasen y agregar pruebas para la nueva funcionalidad.
+5. Abrir un Pull Request hacia la rama `main` con descripcion detallada.
 
 ---
 
-## 📝 Convención de Commits
+## Convencion de Commits
 
-Usamos **Conventional Commits**. Formato:
+El proyecto sigue la especificacion de Conventional Commits:
 
 ```
-<tipo>(<alcance>): <descripción en minúsculas>
+<tipo>(<alcance>): <descripcion en minusculas>
 ```
 
-### Tipos permitidos
+### Tipos Permitidos
 
-| Tipo | Cuándo usarlo |
-|------|---------------|
+| Tipo | Descripcion |
+|------|-------------|
 | `feat` | Nueva funcionalidad |
-| `fix` | Corrección de bug |
-| `test` | Añadir o corregir tests |
-| `docs` | Solo documentación |
-| `refactor` | Refactorización sin cambio funcional |
-| `ci` | Configuración de CI/CD |
-| `chore` | Dependencias, herramientas, configuración |
-| `perf` | Mejoras de rendimiento |
+| `fix` | Correccion de errores |
+| `test` | Incorporacion o correccion de pruebas |
+| `docs` | Modificaciones exclusivas en documentacion |
+| `refactor` | Refactorizacion de codigo sin alteracion funcional |
+| `ci` | Configuracion de integracion continua y despliegue |
+| `chore` | Actualizacion de dependencias o configuraciones menores |
+| `perf` | Optimizaciones de rendimiento |
 
-### Ejemplos válidos
+### Ejemplos
 
 ```bash
 feat(auth): implementar autenticacion JWT y proteccion de endpoints
 fix(repositorio): corregir filtro de soft delete en listar_paginado
-test(api): añadir casos de prueba para paginación
-docs: actualizar README con guia de instalacion
-refactor(servicio): extraer validacion de email a modulo compartido
-chore(deps): actualizar fastapi a 0.116.0
+test(api): anadir casos de prueba para busqueda y ordenacion
+docs: actualizar documentacion de instalacion y configuracion
 ```
 
 ---
 
-## ✅ Estándares de calidad
+## Estandares de Calidad
 
-Antes de hacer un PR, asegúrate de pasar todas las comprobaciones:
+Antes de enviar un Pull Request, ejecutar las siguientes validaciones:
 
 ```bash
-# 1. Tests (deben pasar al 100%)
+# 1. Pruebas unitarias e integracion
 pytest -v
 
-# 2. Linting con Ruff
+# 2. Analisis estatico de codigo con Ruff
 ruff check .
 
-# 3. Tipos con mypy
+# 3. Verificacion de formato
+ruff format . --check
+
+# 4. Comprobacion de tipos estaticos con mypy
 mypy app
-
-# 4. Formateo (Ruff también formatea)
-ruff format .
 ```
 
 ---
 
-## 🏗 Arquitectura del proyecto
+## Arquitectura
 
-El proyecto sigue una arquitectura limpia de 4 capas:
+El diseno sigue una arquitectura en capas bien diferenciadas:
 
 ```
-API (endpoints)  →  Servicios (negocio)  →  Repositorios (datos)  →  Modelos (ORM)
+API (endpoints) -> Servicios (negocio) -> Repositorios (datos) -> Modelos (ORM)
 ```
 
-- **No saltes capas**: los endpoints no hablan con repositorios directamente.
-- **Sin lógica de negocio en endpoints**: va siempre en `servicios/`.
-- **Sin SQL crudo en servicios**: va siempre en `repositorios/`.
-
----
-
-## 🧪 Tests
-
-- Cada nueva funcionalidad debe incluir **al menos un test de integración**.
-- Los tests usan SQLite en memoria, aislada por test (fixture `preparar_base_datos`).
-- Los endpoints protegidos por JWT deben tener tests con y sin token.
-
----
-
-## 🐛 Reportar bugs
-
-Usa la [plantilla de bug report](.github/ISSUE_TEMPLATE/bug_report.md) en GitHub Issues.
-
----
-
-## ❓ Preguntas
-
-Abre un Issue con la etiqueta `question` si tienes dudas sobre el proyecto.
+- Cada capa solo se comunica con su nivel inmediatamente inferior.
+- La logica de negocio reside exclusivamente en `app/servicios/`.
+- El acceso a base de datos se canaliza a traves de `app/repositorios/`.

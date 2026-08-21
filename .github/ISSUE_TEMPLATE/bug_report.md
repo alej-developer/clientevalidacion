@@ -1,28 +1,28 @@
 ---
-name: 🐛 Bug Report
-about: Reporta un error o comportamiento inesperado
+name: Bug Report
+about: Reportar un error o comportamiento inesperado
 title: "[BUG] "
 labels: bug
 assignees: alej-developer
 ---
 
-## 🐛 Descripción del bug
+## Descripcion
 
-<!-- Describe el problema de forma clara y concisa. -->
+<!-- Descripcion clara y concisa del problema. -->
 
-## 🔁 Pasos para reproducirlo
+## Pasos para Reproducir
 
-1. Llamar al endpoint `POST /api/v1/...` con el payload `{...}`
-2. Observar respuesta `...`
-3. Error esperado: `...`
+1. Enviar peticion al endpoint `POST /api/v1/...` con el payload `{...}`
+2. Observar la respuesta devuelta.
+3. Comportamiento anomalo observado.
 
-## ✅ Comportamiento esperado
+## Comportamiento Esperado
 
-<!-- Qué debería pasar en vez de lo que pasa. -->
+<!-- Descripcion de lo que se esperaba que sucediera. -->
 
-## ❌ Comportamiento actual
+## Comportamiento Actual
 
-<!-- Qué está pasando realmente. Incluye el código de estado HTTP y el cuerpo de la respuesta. -->
+<!-- Codigo de estado HTTP y cuerpo de respuesta obtenido. -->
 
 ```json
 {
@@ -32,12 +32,8 @@ assignees: alej-developer
 }
 ```
 
-## 🌍 Entorno
+## Entorno
 
-- **OS:** Windows / Linux / macOS
+- **Sistema Operativo:** Windows / Linux / macOS
 - **Python:** `python --version`
-- **Rama / Commit:** `git log --oneline -1`
-
-## 📎 Información adicional
-
-<!-- Logs, capturas de pantalla, contexto adicional que pueda ayudar. -->
+- **Commit:** `git log --oneline -1`
