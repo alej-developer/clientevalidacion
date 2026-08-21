@@ -155,10 +155,19 @@ async def test_actualizar_usuario_parcial(cliente_async: AsyncClient) -> None:
     respuesta_crear = await cliente_async.post("/api/v1/usuarios", json=payload)
     usuario_id = respuesta_crear.json()["id"]
 
+    # Obtener token de acceso
+    resp_login = await cliente_async.post(
+        "/api/v1/auth/login",
+        data={"username": payload["email"], "password": payload["contrasena"]},
+    )
+    token = resp_login.json()["access_token"]
+
     # Actualizar solo el nombre
     payload_update = {"nombre": "Roberto Ruiz Actualizado"}
     respuesta_actualizar = await cliente_async.patch(
-        f"/api/v1/usuarios/{usuario_id}", json=payload_update
+        f"/api/v1/usuarios/{usuario_id}",
+        json=payload_update,
+        headers={"Authorization": f"Bearer {token}"},
     )
     assert respuesta_actualizar.status_code == 200
     datos = respuesta_actualizar.json()
@@ -177,8 +186,18 @@ async def test_eliminar_usuario(cliente_async: AsyncClient) -> None:
     respuesta_crear = await cliente_async.post("/api/v1/usuarios", json=payload)
     usuario_id = respuesta_crear.json()["id"]
 
+    # Obtener token de acceso
+    resp_login = await cliente_async.post(
+        "/api/v1/auth/login",
+        data={"username": payload["email"], "password": payload["contrasena"]},
+    )
+    token = resp_login.json()["access_token"]
+
     # Eliminar
-    respuesta_eliminar = await cliente_async.delete(f"/api/v1/usuarios/{usuario_id}")
+    respuesta_eliminar = await cliente_async.delete(
+        f"/api/v1/usuarios/{usuario_id}",
+        headers={"Authorization": f"Bearer {token}"},
+    )
     assert respuesta_eliminar.status_code == 204
 
     # Verificar que ya no existe (404)

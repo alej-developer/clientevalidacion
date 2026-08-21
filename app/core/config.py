@@ -35,6 +35,10 @@ class Configuracion(BaseSettings):
     # --- CORS ---
     cors_origenes: list[str] = ["http://localhost:3000", "http://localhost:5173"]
 
+    # --- JWT ---
+    jwt_secreto: str = "cambia-esto-en-produccion-con-un-secreto-fuerte-de-32-chars"
+    jwt_expiracion_minutos: int = 60
+
     # --- Logging ---
     log_nivel: str = "INFO"
 

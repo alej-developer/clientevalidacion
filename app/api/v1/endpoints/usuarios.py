@@ -10,7 +10,7 @@ from typing import Annotated
 
 from fastapi import APIRouter, Depends, Path, Query, status
 
-from app.api.deps import obtener_servicio_usuario
+from app.api.deps import obtener_servicio_usuario, obtener_usuario_actual
 from app.esquemas.usuario import (
     ActualizarUsuario,
     CrearUsuario,
@@ -121,6 +121,7 @@ async def actualizar_usuario(
     usuario_id: Annotated[uuid.UUID, Path(description="UUID único del usuario")],
     datos: ActualizarUsuario,
     servicio: Annotated[ServicioUsuario, Depends(obtener_servicio_usuario)],
+    _: Annotated[RespuestaUsuario, Depends(obtener_usuario_actual)],
 ) -> RespuestaUsuario:
     """Actualiza parcialmente los datos de un usuario."""
     return await servicio.actualizar_usuario(usuario_id=usuario_id, datos=datos)
@@ -140,6 +141,7 @@ async def actualizar_usuario(
 async def eliminar_usuario(
     usuario_id: Annotated[uuid.UUID, Path(description="UUID único del usuario")],
     servicio: Annotated[ServicioUsuario, Depends(obtener_servicio_usuario)],
+    _: Annotated[RespuestaUsuario, Depends(obtener_usuario_actual)],
 ) -> None:
     """Elimina un usuario por su ID."""
     await servicio.eliminar_usuario(usuario_id)
