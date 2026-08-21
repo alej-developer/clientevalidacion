@@ -294,13 +294,18 @@ class ServicioUsuario:
 
     async def eliminar_usuario(self, usuario_id: uuid.UUID) -> None:
         """
-        Elimina un usuario del sistema de forma permanente.
+        Realiza un borrado lógico (soft delete) del usuario.
+
+        El usuario no se elimina físicamente de la base de datos:
+        se establece eliminado_en al timestamp actual. El registro
+        queda oculto en todas las consultas normales pero puede
+        ser restaurado con restaurar_usuario().
 
         Args:
             usuario_id: UUID del usuario a eliminar.
 
         Raises:
-            NoEncontradoError: Si el usuario no existe.
+            NoEncontradoError: Si el usuario no existe o ya está eliminado.
         """
         usuario = await self._repositorio.obtener_por_id(usuario_id)
         if usuario is None:
@@ -310,7 +315,36 @@ class ServicioUsuario:
             )
 
         await self._repositorio.eliminar(usuario)
-        _logger.info("Usuario eliminado: %s (ID: %s)", usuario.email, usuario_id)
+        _logger.info("Usuario eliminado (soft): %s (ID: %s)", usuario.email, usuario_id)
+
+    async def restaurar_usuario(self, usuario_id: uuid.UUID) -> RespuestaUsuario:
+        """
+        Restaura un usuario previamente eliminado lógicamente.
+
+        Establece eliminado_en a None, haciendo al usuario visible
+        de nuevo en todas las consultas normales.
+
+        Args:
+            usuario_id: UUID del usuario a restaurar.
+
+        Retorna:
+            Esquema de respuesta con el usuario restaurado.
+
+        Raises:
+            NoEncontradoError: Si no existe ningún usuario eliminado con ese ID.
+        """
+        usuario = await self._repositorio.obtener_eliminado_por_id(usuario_id)
+        if usuario is None:
+            raise NoEncontradoError(
+                mensaje=f"No se encontró un usuario eliminado con ID '{usuario_id}'.",
+                detalles={"campo": "id", "valor": str(usuario_id)},
+            )
+
+        usuario_restaurado = await self._repositorio.restaurar(usuario)
+        _logger.info(
+            "Usuario restaurado: %s (ID: %s)", usuario_restaurado.email, usuario_id
+        )
+        return RespuestaUsuario.model_validate(usuario_restaurado)
 
     async def verificar_credenciales(self, email: str, contrasena: str) -> Usuario:
         """

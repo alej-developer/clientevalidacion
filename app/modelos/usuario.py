@@ -6,7 +6,7 @@ y credenciales. Aplica tipado estricto de SQLAlchemy 2.0 con índices
 y restricciones únicas.
 """
 
-from sqlalchemy import Index, String
+from sqlalchemy import Index, String, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.db.base_class import ModeloBase
@@ -34,9 +34,8 @@ class Usuario(ModeloBase):
     email: Mapped[str] = mapped_column(
         String(255),
         nullable=False,
-        unique=True,
         index=True,
-        doc="Dirección de correo electrónico única del usuario",
+        doc="Dirección de correo electrónico del usuario",
     )
 
     contrasena_hash: Mapped[str] = mapped_column(
@@ -51,8 +50,11 @@ class Usuario(ModeloBase):
         doc="Indica si la cuenta del usuario está activa",
     )
 
-    # --- Índices compuestos ---
+    # --- Índices y restricciones ---
     __table_args__ = (
+        # Email único solo entre usuarios NO eliminados.
+        # Usuarios con soft delete pueden liberar su email para reutilizarlo.
+        UniqueConstraint("email", "eliminado_en", name="uq_usuarios_email_eliminado_en"),
         Index("ix_usuarios_email_activo", "email", "esta_activo"),
         {"comment": "Tabla de usuarios registrados en el sistema"},
     )

@@ -1,12 +1,14 @@
 """
-Repositorio base genérico asíncrono.
+Repositorio base genérico asíncrono con soporte de Soft Delete.
 
 Implementa el patrón Repository con operaciones CRUD genéricas
-reutilizables por cualquier entidad del dominio. Usa tipado genérico
-de Python 3.12+ para mantener la seguridad de tipos.
+reutilizables por cualquier entidad del dominio. Todas las consultas
+filtran automáticamente los registros borrados lógicamente
+(eliminado_en IS NULL), preservando los datos para auditoría.
 """
 
 import uuid
+from datetime import UTC, datetime
 from typing import Any, Generic, TypeVar
 
 from sqlalchemy import func, select
@@ -22,11 +24,11 @@ T = TypeVar("T", bound=ModeloBase)
 
 class RepositorioBase(Generic[T]):
     """
-    Repositorio genérico asíncrono con operaciones CRUD estándar.
+    Repositorio genérico asíncrono con operaciones CRUD y Soft Delete.
 
-    Proporciona métodos reutilizables para cualquier modelo que
-    herede de ModeloBase. Las subclases pueden sobrescribir o
-    extender estos métodos con consultas específicas del dominio.
+    Todas las consultas de listado y búsqueda excluyen automáticamente
+    registros con eliminado_en IS NOT NULL. El método 'eliminar' realiza
+    un borrado lógico en vez de físico.
 
     Args:
         modelo: Clase del modelo SQLAlchemy asociado al repositorio.
@@ -37,24 +39,33 @@ class RepositorioBase(Generic[T]):
         self.modelo = modelo
         self.sesion = sesion
 
+    def _filtro_no_eliminado(self) -> Any:
+        """Condición SQLAlchemy para excluir registros borrados lógicamente."""
+        return self.modelo.eliminado_en.is_(None)  # type: ignore[union-attr]
+
     async def obtener_por_id(self, registro_id: uuid.UUID) -> T | None:
         """
-        Obtiene un registro por su identificador UUID.
+        Obtiene un registro activo (no eliminado) por su identificador UUID.
 
         Args:
             registro_id: UUID del registro a buscar.
 
         Retorna:
-            El registro encontrado o None si no existe.
+            El registro encontrado o None si no existe o está eliminado.
         """
-        resultado = await self.sesion.get(self.modelo, registro_id)
+        consulta = select(self.modelo).where(
+            self.modelo.id == registro_id,
+            self._filtro_no_eliminado(),
+        )
+        resultado = await self.sesion.execute(consulta)
+        registro = resultado.scalar_one_or_none()
         _logger.debug(
             "Consulta por ID %s en %s — %s",
             registro_id,
             self.modelo.__tablename__,
-            "encontrado" if resultado else "no encontrado",
+            "encontrado" if registro else "no encontrado",
         )
-        return resultado
+        return registro
 
     async def listar_paginado(
         self,
@@ -63,7 +74,9 @@ class RepositorioBase(Generic[T]):
         filtros: dict[str, Any] | None = None,
     ) -> tuple[list[T], int]:
         """
-        Lista registros con paginación y filtros opcionales.
+        Lista registros activos con paginación y filtros opcionales.
+
+        Excluye automáticamente los registros con soft delete aplicado.
 
         Args:
             pagina: Número de página (empezando desde 1).
@@ -71,12 +84,14 @@ class RepositorioBase(Generic[T]):
             filtros: Diccionario de filtros {nombre_columna: valor}.
 
         Retorna:
-            Tupla con (lista de registros, total de registros).
+            Tupla con (lista de registros, total de registros activos).
         """
-        consulta = select(self.modelo)
-        consulta_conteo = select(func.count()).select_from(self.modelo)
+        consulta = select(self.modelo).where(self._filtro_no_eliminado())
+        consulta_conteo = select(func.count()).select_from(self.modelo).where(
+            self._filtro_no_eliminado()
+        )
 
-        # Aplicar filtros dinámicos
+        # Aplicar filtros dinámicos adicionales
         if filtros:
             for campo, valor in filtros.items():
                 if hasattr(self.modelo, campo) and valor is not None:
@@ -155,16 +170,58 @@ class RepositorioBase(Generic[T]):
 
     async def eliminar(self, registro: T) -> None:
         """
-        Elimina un registro de la base de datos.
+        Realiza un borrado lógico (Soft Delete) del registro.
+
+        Establece eliminado_en al timestamp actual en vez de eliminar
+        la fila de la base de datos, preservando los datos para auditoría.
 
         Args:
-            registro: Instancia del modelo a eliminar.
+            registro: Instancia del modelo a marcar como eliminada.
         """
         registro_id = registro.id
-        await self.sesion.delete(registro)
+        registro.eliminado_en = datetime.now(tz=UTC)  # type: ignore[assignment]
         await self.sesion.flush()
         _logger.info(
-            "Registro eliminado de %s con ID %s",
+            "Soft delete aplicado en %s con ID %s",
             self.modelo.__tablename__,
             registro_id,
         )
+
+    async def restaurar(self, registro: T) -> T:
+        """
+        Restaura un registro previamente eliminado lógicamente.
+
+        Establece eliminado_en a None, haciendo el registro visible
+        de nuevo en todas las consultas estándar.
+
+        Args:
+            registro: Instancia del modelo a restaurar.
+
+        Retorna:
+            El registro restaurado.
+        """
+        registro_id = registro.id
+        registro.eliminado_en = None  # type: ignore[assignment]
+        await self.sesion.flush()
+        await self.sesion.refresh(registro)
+        _logger.info(
+            "Registro restaurado en %s con ID %s",
+            self.modelo.__tablename__,
+            registro_id,
+        )
+        return registro
+
+    async def obtener_por_id_incluyendo_eliminados(self, registro_id: uuid.UUID) -> T | None:
+        """
+        Obtiene un registro por ID sin filtrar eliminados.
+
+        Útil para operaciones de restauración o auditoría.
+
+        Args:
+            registro_id: UUID del registro a buscar.
+
+        Retorna:
+            El registro (activo o eliminado) o None si no existe.
+        """
+        resultado = await self.sesion.get(self.modelo, registro_id)
+        return resultado

@@ -130,10 +130,15 @@ async def actualizar_usuario(
 @router.delete(
     "/{usuario_id}",
     status_code=status.HTTP_204_NO_CONTENT,
-    summary="Eliminar usuario",
-    description="Elimina un usuario del sistema de forma permanente.",
+    summary="Eliminar usuario (soft delete)",
+    description=(
+        "Realiza un borrado lógico del usuario: establece eliminado_en al timestamp "
+        "actual. El registro no se borra físicamente y puede recuperarse con el "
+        "endpoint /restaurar. Requiere autenticación JWT."
+    ),
     responses={
-        204: {"description": "Usuario eliminado exitosamente"},
+        204: {"description": "Usuario marcado como eliminado exitosamente"},
+        401: {"description": "No autorizado"},
         404: {"description": "Usuario no encontrado"},
         422: {"description": "Formato de UUID inválido"},
     },
@@ -143,5 +148,30 @@ async def eliminar_usuario(
     servicio: Annotated[ServicioUsuario, Depends(obtener_servicio_usuario)],
     _: Annotated[RespuestaUsuario, Depends(obtener_usuario_actual)],
 ) -> None:
-    """Elimina un usuario por su ID."""
+    """Realiza el borrado lógico (soft delete) de un usuario."""
     await servicio.eliminar_usuario(usuario_id)
+
+
+@router.post(
+    "/{usuario_id}/restaurar",
+    response_model=RespuestaUsuario,
+    status_code=status.HTTP_200_OK,
+    summary="Restaurar usuario eliminado",
+    description=(
+        "Restaura un usuario previamente eliminado con soft delete, "
+        "estableciendo eliminado_en a None. Requiere autenticación JWT."
+    ),
+    responses={
+        200: {"description": "Usuario restaurado exitosamente"},
+        401: {"description": "No autorizado"},
+        404: {"description": "No existe un usuario eliminado con ese ID"},
+        422: {"description": "Formato de UUID inválido"},
+    },
+)
+async def restaurar_usuario(
+    usuario_id: Annotated[uuid.UUID, Path(description="UUID del usuario eliminado a restaurar")],
+    servicio: Annotated[ServicioUsuario, Depends(obtener_servicio_usuario)],
+    _: Annotated[RespuestaUsuario, Depends(obtener_usuario_actual)],
+) -> RespuestaUsuario:
+    """Restaura un usuario marcado con soft delete."""
+    return await servicio.restaurar_usuario(usuario_id)

@@ -2,7 +2,7 @@
 Clase base declarativa para todos los modelos SQLAlchemy.
 
 Proporciona campos de auditoría automáticos (id UUID, creado_en,
-actualizado_en) que heredan todos los modelos de la aplicación.
+actualizado_en, eliminado_en) que heredan todos los modelos de la aplicación.
 """
 
 import uuid
@@ -20,6 +20,7 @@ class ModeloBase(DeclarativeBase):
         - id: Clave primaria UUID v4 generada automáticamente.
         - creado_en: Marca temporal de creación (UTC), asignada por el servidor.
         - actualizado_en: Marca temporal de última actualización (UTC), actualizada automáticamente.
+        - eliminado_en: Marca temporal de borrado lógico (None = registro activo).
     """
 
     id: Mapped[uuid.UUID] = mapped_column(
@@ -44,6 +45,18 @@ class ModeloBase(DeclarativeBase):
         nullable=False,
         doc="Fecha y hora de la última actualización del registro (UTC)",
     )
+
+    eliminado_en: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True),
+        nullable=True,
+        default=None,
+        doc="Fecha de borrado lógico. None indica que el registro está activo.",
+    )
+
+    @property
+    def esta_eliminado(self) -> bool:
+        """Retorna True si el registro ha sido eliminado lógicamente."""
+        return self.eliminado_en is not None
 
     def __repr__(self) -> str:
         """Representación legible del modelo para depuración."""

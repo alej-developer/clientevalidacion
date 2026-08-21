@@ -168,6 +168,10 @@ class RespuestaUsuario(BaseModel):
     esta_activo: bool = Field(description="Indica si la cuenta está activa")
     creado_en: datetime = Field(description="Fecha de creación del registro")
     actualizado_en: datetime = Field(description="Fecha de última actualización")
+    eliminado_en: datetime | None = Field(
+        default=None,
+        description="Fecha de borrado lógico. None indica que el usuario está activo.",
+    )
 
 
 class RespuestaListaUsuarios(BaseModel):
