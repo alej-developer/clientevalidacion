@@ -49,7 +49,7 @@ def crear_access_token(
 
     token = jwt.encode(payload, _config.jwt_secreto, algorithm=ALGORITMO)
     _logger.debug("Token JWT generado para sub='%s', exp='%s'", sub, expira)
-    return token
+    return str(token)
 
 
 def decodificar_token(token: str) -> dict[str, Any]:

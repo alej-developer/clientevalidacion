@@ -6,12 +6,9 @@ de dominio (ExcepcionBase), transformándolas en respuestas JSON
 consistentes con la estructura estándar de error de la API.
 """
 
-from collections.abc import Callable, Coroutine
-from typing import Any
-
 from fastapi import Request, Response
 from fastapi.responses import JSONResponse
-from starlette.middleware.base import BaseHTTPMiddleware
+from starlette.middleware.base import BaseHTTPMiddleware, RequestResponseEndpoint
 
 from app.core.excepciones.excepciones import ExcepcionBase
 from app.core.logging import obtener_logger
@@ -25,7 +22,7 @@ class MiddlewareExcepciones(BaseHTTPMiddleware):
     async def dispatch(
         self,
         request: Request,
-        call_next: Callable[[Request], Coroutine[Any, Any, Response]],
+        call_next: RequestResponseEndpoint,
     ) -> Response:
         """
         Procesa la petición y captura cualquier excepción no controlada.
