@@ -26,6 +26,15 @@ dev = [
     "ruff>=0.6.0",
 ]
 
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+# Solo `app` es paquete instalable. Alembic vive en el repo como migraciones,
+# no como distribución (evita "Multiple top-level packages").
+[tool.setuptools.packages.find]
+include = ["app*"]
+
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 asyncio_mode = "auto"
