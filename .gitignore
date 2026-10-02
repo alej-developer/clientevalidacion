@@ -38,6 +38,9 @@ htmlcov/
 # === Alembic ===
 alembic/versions/*.pyc
 
+# === Bases de datos locales ===
+*.db
+
 # === OS ===
 .DS_Store
 Thumbs.db
