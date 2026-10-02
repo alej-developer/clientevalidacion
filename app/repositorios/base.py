@@ -41,7 +41,7 @@ class RepositorioBase(Generic[T]):
 
     def _filtro_no_eliminado(self) -> Any:
         """Condición SQLAlchemy para excluir registros borrados lógicamente."""
-        return self.modelo.eliminado_en.is_(None)  # type: ignore[union-attr]
+        return self.modelo.eliminado_en.is_(None)
 
     async def obtener_por_id(self, registro_id: uuid.UUID) -> T | None:
         """
@@ -191,7 +191,7 @@ class RepositorioBase(Generic[T]):
             registro: Instancia del modelo a marcar como eliminada.
         """
         registro_id = registro.id
-        registro.eliminado_en = datetime.now(tz=UTC)  # type: ignore[assignment]
+        registro.eliminado_en = datetime.now(tz=UTC)
         await self.sesion.flush()
         _logger.info(
             "Soft delete aplicado en %s con ID %s",
@@ -213,7 +213,7 @@ class RepositorioBase(Generic[T]):
             El registro restaurado.
         """
         registro_id = registro.id
-        registro.eliminado_en = None  # type: ignore[assignment]
+        registro.eliminado_en = None
         await self.sesion.flush()
         await self.sesion.refresh(registro)
         _logger.info(
