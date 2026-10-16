@@ -223,7 +223,7 @@ curl -X GET http://localhost:8000/api/v1/auth/yo \
 ## Rate Limiting
 
 El sistema implementa limitacion de tasa mediante `slowapi`:
-- **Autenticacion (`/api/v1/auth/login`)**: maximo 10 solicitudes por minuto por direccion IP.
+- **Autenticacion (`/api/v1/auth/login`) y registro (`POST /api/v1/usuarios`)**: maximo 10 solicitudes por minuto por direccion IP.
 - **Rutas generales**: maximo 60 solicitudes por minuto por defecto.
 - Las solicitudes excedidas reciben codigo de estado `429 Too Many Requests`.
 

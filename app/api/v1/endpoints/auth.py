@@ -34,7 +34,7 @@ _config = obtener_configuracion()
     ),
     responses={
         200: {"description": "Login exitoso, token JWT generado"},
-        401: {"description": "Credenciales inválidas o cuenta inactiva"},
+        401: {"description": "Credenciales inválidas (respuesta genérica anti-enumeración)"},
         429: {"description": "Demasiadas peticiones consecutivas (Rate Limit)"},
     },
 )

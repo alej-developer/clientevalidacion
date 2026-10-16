@@ -3,9 +3,9 @@ Pruebas de integración para los endpoints de autenticación (/api/v1/auth).
 
 Cubre:
 - Login exitoso: recibe token JWT válido (HTTP 200).
-- Login con email inexistente (HTTP 422/404 → el servicio lanza NoEncontradoError).
-- Login con contraseña incorrecta (HTTP 422).
-- Login con cuenta inactiva (HTTP 422).
+- Login con email inexistente (HTTP 401 genérico, anti-enumeración).
+- Login con contraseña incorrecta (HTTP 401, mismo mensaje).
+- Login con cuenta inactiva (HTTP 401, mismo mensaje).
 - Acceso a endpoint protegido sin token (HTTP 401).
 - Acceso a endpoint protegido con token válido (HTTP 200).
 - Acceso a endpoint protegido con token inválido (HTTP 401).

@@ -12,7 +12,7 @@ import re
 import uuid
 from datetime import datetime
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator
+from pydantic import BaseModel, ConfigDict, EmailStr, Field, field_validator
 
 
 class UsuarioBase(BaseModel):
@@ -24,7 +24,7 @@ class UsuarioBase(BaseModel):
         description="Nombre completo del usuario",
         examples=["Juan García López"],
     )
-    email: str = Field(
+    email: EmailStr = Field(
         max_length=255,
         description="Dirección de correo electrónico",
         examples=["juan.garcia@ejemplo.com"],
@@ -48,12 +48,8 @@ class CrearUsuario(UsuarioBase):
 
     @field_validator("email")
     @classmethod
-    def validar_formato_email(cls, valor: str) -> str:
-        """Valida que el email tenga un formato correcto."""
-        patron_email = r"^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$"
-        if not re.match(patron_email, valor):
-            msg = f"El formato del email '{valor}' no es válido."
-            raise ValueError(msg)
+    def normalizar_email(cls, valor: str) -> str:
+        """Normaliza el email (minúsculas, sin espacios). El formato lo valida EmailStr."""
         return valor.lower().strip()
 
     @field_validator("contrasena")
@@ -99,7 +95,7 @@ class ActualizarUsuario(BaseModel):
         max_length=150,
         description="Nuevo nombre completo del usuario",
     )
-    email: str | None = Field(
+    email: EmailStr | None = Field(
         default=None,
         max_length=255,
         description="Nueva dirección de correo electrónico",
@@ -117,14 +113,10 @@ class ActualizarUsuario(BaseModel):
 
     @field_validator("email")
     @classmethod
-    def validar_formato_email(cls, valor: str | None) -> str | None:
-        """Valida el formato del email si se proporciona."""
+    def normalizar_email(cls, valor: str | None) -> str | None:
+        """Normaliza el email si se proporciona. El formato lo valida EmailStr."""
         if valor is None:
             return valor
-        patron_email = r"^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$"
-        if not re.match(patron_email, valor):
-            msg = f"El formato del email '{valor}' no es válido."
-            raise ValueError(msg)
         return valor.lower().strip()
 
     @field_validator("contrasena")

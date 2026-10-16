@@ -15,6 +15,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.excepciones.excepciones import (
     ConflictoError,
+    NoAutorizadoError,
     NoEncontradoError,
     ValidacionError,
 )
@@ -29,6 +30,10 @@ from app.modelos.usuario import Usuario
 from app.repositorios.usuario import RepositorioUsuario
 
 _logger = obtener_logger("servicio.usuario")
+
+# Hash ficticio (formato 'salt:hash') para igualar el tiempo de respuesta
+# cuando el email no existe: evita la enumeración de cuentas por timing.
+_HASH_DUMMY = "0" * 64 + ":" + "0" * 64
 
 
 class ServicioUsuario:
@@ -393,27 +398,24 @@ class ServicioUsuario:
             La instancia del modelo Usuario si las credenciales son válidas.
 
         Raises:
-            NoEncontradoError: Si el usuario no existe.
-            ValidacionError: Si la contraseña es incorrecta o la cuenta está desactivada.
+            NoAutorizadoError: Si las credenciales son inválidas (mismo 401
+                genérico para email inexistente, contraseña incorrecta o
+                cuenta desactivada, para no permitir enumerar cuentas).
         """
         usuario = await self._repositorio.obtener_por_email(email)
         if usuario is None:
-            raise NoEncontradoError(
-                mensaje="Credenciales inválidas.",
-                detalles={"campo": "email"},
-            )
+            # Hash ficticio para que la respuesta tarde lo mismo que con
+            # contraseña incorrecta (anti-enumeración por timing).
+            self._verificar_contrasena(contrasena, _HASH_DUMMY)
+            raise NoAutorizadoError(mensaje="Credenciales inválidas.")
 
         if not usuario.esta_activo:
-            raise ValidacionError(
-                mensaje="La cuenta del usuario está desactivada.",
-                detalles={"campo": "esta_activo", "valor": False},
-            )
+            # Misma respuesta genérica: no revelar ni la existencia ni el
+            # estado de la cuenta por esta vía.
+            raise NoAutorizadoError(mensaje="Credenciales inválidas.")
 
         if not self._verificar_contrasena(contrasena, usuario.contrasena_hash):
-            raise ValidacionError(
-                mensaje="Credenciales inválidas.",
-                detalles={"campo": "contrasena"},
-            )
+            raise NoAutorizadoError(mensaje="Credenciales inválidas.")
 
         _logger.info("Credenciales verificadas para usuario: %s", email)
         return usuario
