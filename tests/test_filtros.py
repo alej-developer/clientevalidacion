@@ -45,7 +45,9 @@ async def test_busqueda_usuarios_por_texto_q(cliente_async: AsyncClient) -> None
     resp_musica = await cliente_async.get("/api/v1/usuarios?q=musica")
     assert resp_musica.status_code == 200
     assert resp_musica.json()["total"] == 1
-    assert resp_musica.json()["elementos"][0]["email"] == "mlopez@musica.org"
+    assert resp_musica.json()["elementos"][0]["nombre"] == "Maria Lopez"
+    # El listado es la vista pública: la búsqueda usa el email pero no lo devuelve
+    assert "email" not in resp_musica.json()["elementos"][0]
 
     # Buscar coincidencia parcial comun 'a'
     resp_comun = await cliente_async.get("/api/v1/usuarios?q=a")
@@ -94,13 +96,13 @@ async def test_filtrar_por_estado_activo(cliente_async: AsyncClient) -> None:
     resp_inactivos = await cliente_async.get("/api/v1/usuarios?esta_activo=false")
     assert resp_inactivos.status_code == 200
     assert resp_inactivos.json()["total"] == 1
-    assert resp_inactivos.json()["elementos"][0]["email"] == "inactivo@ejemplo.com"
+    assert resp_inactivos.json()["elementos"][0]["nombre"] == "Usuario Inactivo"
 
     # Consultar solo activos
     resp_activos = await cliente_async.get("/api/v1/usuarios?esta_activo=true")
     assert resp_activos.status_code == 200
     assert resp_activos.json()["total"] == 1
-    assert resp_activos.json()["elementos"][0]["email"] == "activo@ejemplo.com"
+    assert resp_activos.json()["elementos"][0]["nombre"] == "Usuario Activo"
 
 
 @pytest.mark.asyncio

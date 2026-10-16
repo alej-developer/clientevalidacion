@@ -188,8 +188,8 @@ Documentacion interactiva:
 | Metodo | Ruta | Descripcion | Autenticacion |
 |--------|------|-------------|---------------|
 | `POST` | `/api/v1/usuarios` | Registrar nuevo usuario | No |
-| `GET` | `/api/v1/usuarios` | Listar usuarios (paginacion, busqueda `q`, filtro `esta_activo`, orden) | No |
-| `GET` | `/api/v1/usuarios/{id}` | Obtener detalle de usuario por UUID | No |
+| `GET` | `/api/v1/usuarios` | Listar usuarios (paginacion, busqueda `q`, filtro `esta_activo`, orden). Vista publica: sin email | No |
+| `GET` | `/api/v1/usuarios/{id}` | Detalle por UUID. Vista publica sin email; con el token del propio usuario, vista completa | No (opcional) |
 | `PATCH` | `/api/v1/usuarios/{id}` | Actualizacion parcial de datos | Si (Bearer, solo la propia cuenta) |
 | `DELETE` | `/api/v1/usuarios/{id}` | Soft delete (borrado logico) | Si (Bearer, solo la propia cuenta) |
 | `POST` | `/api/v1/usuarios/{id}/restaurar` | Restaurar usuario eliminado | Si (Bearer, solo la propia cuenta) |
@@ -226,6 +226,21 @@ El sistema implementa limitacion de tasa mediante `slowapi`:
 - **Autenticacion (`/api/v1/auth/login`) y registro (`POST /api/v1/usuarios`)**: maximo 10 solicitudes por minuto por direccion IP.
 - **Rutas generales**: maximo 60 solicitudes por minuto por defecto.
 - Las solicitudes excedidas reciben codigo de estado `429 Too Many Requests`.
+
+---
+
+## Datos de demostracion (portafolio)
+
+La API es publica a proposito: las lecturas (`GET /usuarios`, `GET /usuarios/{id}`)
+no exponen emails. Para la demo desplegada se usan datos 100% ficticios:
+
+```bash
+python -m scripts.seed_demo
+```
+
+Crea 10 usuarios ficticios (`...@ejemplo.com`), idempotente. Todos comparten
+la contrasena demo `Demo#2026!` para que quien revise el proyecto pueda
+iniciar sesion. Nunca usar en despliegues con datos reales.
 
 ---
 
