@@ -277,7 +277,7 @@ clientevalidacion/
 |   |   |-- limiter.py        # Instancia de Rate Limiting
 |   |   |-- logging.py        # Logging estructurado
 |   |   |-- seguridad.py      # Generacion y verificacion de JWT
-|   |   `-- excepciones/      # Excepciones de dominio y middleware
+|   |   `-- excepciones/      # Excepciones de dominio (handlers nativos en main.py)
 |   |-- db/
 |   |   |-- base_class.py     # Clase base ORM (UUID, marcas temporales, soft delete)
 |   |   `-- registro.py

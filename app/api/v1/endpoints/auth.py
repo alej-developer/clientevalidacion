@@ -7,7 +7,7 @@ GET  /api/v1/auth/yo     → Retorna el usuario autenticado actual.
 
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, Request
+from fastapi import APIRouter, Depends, Request, Response
 from fastapi.security import OAuth2PasswordRequestForm
 
 from app.api.deps import obtener_servicio_usuario, obtener_usuario_actual
@@ -41,6 +41,7 @@ _config = obtener_configuracion()
 @limiter.limit(_config.limite_auth)
 async def login(
     request: Request,
+    response: Response,
     formulario: Annotated[OAuth2PasswordRequestForm, Depends()],
     servicio: Annotated[ServicioUsuario, Depends(obtener_servicio_usuario)],
 ) -> Token:

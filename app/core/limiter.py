@@ -15,5 +15,5 @@ _config = obtener_configuracion()
 limiter = Limiter(
     key_func=get_remote_address,
     default_limits=[_config.limite_por_defecto],
-    headers_enabled=False,
+    headers_enabled=True,
 )

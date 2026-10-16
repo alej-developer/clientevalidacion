@@ -8,7 +8,7 @@ paginación, filtros tipados, documentación OpenAPI y respuestas tipadas.
 import uuid
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, Path, Query, Request, status
+from fastapi import APIRouter, Depends, Path, Query, Request, Response, status
 from fastapi.security import OAuth2PasswordBearer
 from jose import JWTError
 
@@ -78,6 +78,7 @@ def _verificar_propiedad(usuario_id: uuid.UUID, usuario_actual: RespuestaUsuario
 @limiter.limit(_config.limite_auth)
 async def crear_usuario(
     request: Request,
+    response: Response,
     datos: CrearUsuario,
     servicio: Annotated[ServicioUsuario, Depends(obtener_servicio_usuario)],
 ) -> RespuestaUsuario:

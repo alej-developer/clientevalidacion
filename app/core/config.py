@@ -8,8 +8,11 @@ de entorno necesarias. Carga automáticamente desde el archivo .env.
 from functools import lru_cache
 from typing import Any
 
-from pydantic import field_validator
+from pydantic import field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
+# Valor por defecto del secreto JWT (público, solo válido en desarrollo)
+JWT_SECRETO_POR_DEFECTO = "cambia-esto-en-produccion-con-un-secreto-fuerte-de-32-chars"
 
 
 class Configuracion(BaseSettings):
@@ -50,11 +53,29 @@ class Configuracion(BaseSettings):
     cors_origenes: list[str] = ["http://localhost:3000", "http://localhost:5173"]
 
     # --- JWT ---
-    jwt_secreto: str = "cambia-esto-en-produccion-con-un-secreto-fuerte-de-32-chars"
+    jwt_secreto: str = JWT_SECRETO_POR_DEFECTO
+
     jwt_expiracion_minutos: int = 60
 
     # --- Logging ---
     log_nivel: str = "INFO"
+
+    @model_validator(mode="after")
+    def validar_secreto_jwt_en_produccion(self) -> "Configuracion":
+        """
+        Impide arrancar en modo producción con el secreto JWT por defecto.
+
+        El valor por defecto es público (está en el repositorio): con
+        APP_DEBUG=false cualquiera podría firmar tokens válidos. En
+        desarrollo (APP_DEBUG=true) se permite para no pedir .env.
+        """
+        if not self.app_debug and self.jwt_secreto == JWT_SECRETO_POR_DEFECTO:
+            msg = (
+                "JWT_SECRETO tiene el valor por defecto (público) y APP_DEBUG=false. "
+                "Define un secreto fuerte en .env antes de arrancar en producción."
+            )
+            raise ValueError(msg)
+        return self
 
     @field_validator("log_nivel")
     @classmethod

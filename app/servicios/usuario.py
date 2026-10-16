@@ -147,7 +147,7 @@ class ServicioUsuario:
                 mensaje=f"El email '{datos.email}' ya está registrado.",
                 detalles={"campo": "email", "valor": datos.email},
             )
-        _logger.info("Usuario creado exitosamente: %s (ID: %s)", usuario.email, usuario.id)
+        _logger.info("Usuario creado exitosamente (ID: %s)", usuario.id)
 
         return RespuestaUsuario.model_validate(usuario)
 
@@ -334,7 +334,7 @@ class ServicioUsuario:
                 mensaje=f"El email '{datos.email}' ya está en uso por otro usuario.",
                 detalles={"campo": "email", "valor": datos.email},
             )
-        _logger.info("Usuario actualizado: %s (ID: %s)", usuario_actualizado.email, usuario_id)
+        _logger.info("Usuario actualizado (ID: %s)", usuario_id)
 
         return RespuestaUsuario.model_validate(usuario_actualizado)
 
@@ -361,7 +361,7 @@ class ServicioUsuario:
             )
 
         await self._repositorio.eliminar(usuario)
-        _logger.info("Usuario eliminado (soft): %s (ID: %s)", usuario.email, usuario_id)
+        _logger.info("Usuario eliminado, soft delete (ID: %s)", usuario_id)
 
     async def restaurar_usuario(self, usuario_id: uuid.UUID) -> RespuestaUsuario:
         """
@@ -387,7 +387,7 @@ class ServicioUsuario:
             )
 
         usuario_restaurado = await self._repositorio.restaurar(usuario)
-        _logger.info("Usuario restaurado: %s (ID: %s)", usuario_restaurado.email, usuario_id)
+        _logger.info("Usuario restaurado (ID: %s)", usuario_id)
         return RespuestaUsuario.model_validate(usuario_restaurado)
 
     async def verificar_credenciales(self, email: str, contrasena: str) -> Usuario:
@@ -421,5 +421,5 @@ class ServicioUsuario:
         if not self._verificar_contrasena(contrasena, usuario.contrasena_hash):
             raise NoAutorizadoError(mensaje="Credenciales inválidas.")
 
-        _logger.info("Credenciales verificadas para usuario: %s", email)
+        _logger.info("Credenciales verificadas (ID: %s)", usuario.id)
         return usuario
