@@ -2,7 +2,7 @@
 
 API REST de gestion de usuarios construida con FastAPI, arquitectura limpia y Domain-Driven Design simplificado.
 
-[![Tests](https://img.shields.io/badge/tests-30%20passed-brightgreen?style=flat-square&logo=pytest)](https://github.com/alej-developer/clientevalidacion)
+[![Tests](https://img.shields.io/badge/tests-34%20passed-brightgreen?style=flat-square&logo=pytest)](https://github.com/alej-developer/clientevalidacion)
 [![Python](https://img.shields.io/badge/python-3.11%2B-blue?style=flat-square&logo=python)](https://www.python.org)
 [![FastAPI](https://img.shields.io/badge/FastAPI-0.115%2B-009688?style=flat-square&logo=fastapi)](https://fastapi.tiangolo.com)
 [![SQLAlchemy](https://img.shields.io/badge/SQLAlchemy-2.0%20async-red?style=flat-square)](https://www.sqlalchemy.org)
@@ -118,6 +118,9 @@ pip install -e ".[dev]"
 
 # 4. Configurar variables de entorno
 cp .env.example .env
+# JWT_SECRETO es obligatorio y no tiene valor por defecto.
+# Genera uno y pegalo en .env; sin el, la aplicacion no arranca:
+#   python -c "import secrets; print(secrets.token_urlsafe(48))"
 
 # 5. Ejecutar migraciones
 python -m alembic upgrade head
@@ -126,6 +129,8 @@ python -m alembic upgrade head
 ---
 
 ## Variables de Entorno
+
+`JWT_SECRETO` no tiene valor por defecto. Hay que definirlo en el entorno o en `.env`. Si falta o esta vacio, la aplicacion no arranca. La suite de tests asigna una variable de prueba cuando el entorno no la trae.
 
 Archivo `.env.example`:
 
@@ -141,8 +146,8 @@ BD_URL="sqlite+aiosqlite:///./desarrollo.db"
 # CORS
 CORS_ORIGENES='["http://localhost:3000","http://localhost:5173"]'
 
-# JWT
-JWT_SECRETO="cambia-esto-en-produccion-con-un-secreto-fuerte-de-32-chars"
+# JWT (obligatorio)
+JWT_SECRETO=
 JWT_EXPIRACION_MINUTOS=60
 
 # Rate Limiting

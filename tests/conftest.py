@@ -7,20 +7,28 @@ Proporciona la infraestructura de pruebas con:
 - Cliente HTTP asíncrono (httpx.AsyncClient) para realizar peticiones de prueba.
 """
 
+import os
 from collections.abc import AsyncIterator
 
-import pytest
-from httpx import ASGITransport, AsyncClient
-from sqlalchemy.ext.asyncio import (
+# La aplicación no tiene JWT_SECRETO por defecto. Esta variable de test
+# permite importar la app cuando el entorno no define el secreto.
+os.environ.setdefault(
+    "JWT_SECRETO",
+    "clave-secreta-solo-para-tests-no-usar-en-produccion",
+)
+
+import pytest  # noqa: E402
+from httpx import ASGITransport, AsyncClient  # noqa: E402
+from sqlalchemy.ext.asyncio import (  # noqa: E402
     AsyncSession,
     async_sessionmaker,
     create_async_engine,
 )
 
-from app.core.database import obtener_db
-from app.core.limiter import limiter
-from app.db.registro import ModeloBase
-from app.main import app
+from app.core.database import obtener_db  # noqa: E402
+from app.core.limiter import limiter  # noqa: E402
+from app.db.registro import ModeloBase  # noqa: E402
+from app.main import app  # noqa: E402
 
 # Motor de base de datos en memoria para pruebas
 MOTOR_PRUEBAS = create_async_engine(
