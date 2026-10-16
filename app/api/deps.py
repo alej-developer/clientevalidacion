@@ -19,6 +19,7 @@ from app.core.database import obtener_db
 from app.core.excepciones.excepciones import NoAutorizadoError
 from app.core.seguridad import NOMBRE_COOKIE_AUTH, decodificar_token
 from app.esquemas.usuario import RespuestaUsuario
+from app.servicios.autenticacion import ServicioAutenticacion
 from app.servicios.usuario import ServicioUsuario
 
 # Esquema OAuth2 — apunta al endpoint de login para Swagger UI.
@@ -41,6 +42,13 @@ def obtener_servicio_usuario(
         Instancia de ServicioUsuario lista para procesar la lógica de negocio.
     """
     return ServicioUsuario(sesion=sesion)
+
+
+def obtener_servicio_autenticacion(
+    sesion: Annotated[AsyncSession, Depends(obtener_db)],
+) -> ServicioAutenticacion:
+    """Inyecta una instancia de ServicioAutenticacion con la sesión actual."""
+    return ServicioAutenticacion(sesion=sesion)
 
 
 async def obtener_usuario_actual(
