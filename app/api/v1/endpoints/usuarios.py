@@ -8,9 +8,11 @@ paginación, filtros tipados, documentación OpenAPI y respuestas tipadas.
 import uuid
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, Path, Query, status
+from fastapi import APIRouter, Depends, Path, Query, Request, status
 
 from app.api.deps import obtener_servicio_usuario, obtener_usuario_actual
+from app.core.config import obtener_configuracion
+from app.core.limiter import limiter
 from app.esquemas.usuario import (
     ActualizarUsuario,
     CrearUsuario,
@@ -20,6 +22,8 @@ from app.esquemas.usuario import (
 from app.servicios.usuario import ServicioUsuario
 
 router = APIRouter(prefix="/usuarios", tags=["Usuarios"])
+
+_config = obtener_configuracion()
 
 
 @router.post(
@@ -37,9 +41,12 @@ router = APIRouter(prefix="/usuarios", tags=["Usuarios"])
         400: {"description": "Petición incorrecta o datos inválidos"},
         409: {"description": "Conflicto: El email ya está registrado"},
         422: {"description": "Error de validación en los campos enviados"},
+        429: {"description": "Demasiadas peticiones consecutivas (Rate Limit)"},
     },
 )
+@limiter.limit(_config.limite_auth)
 async def crear_usuario(
+    request: Request,
     datos: CrearUsuario,
     servicio: Annotated[ServicioUsuario, Depends(obtener_servicio_usuario)],
 ) -> RespuestaUsuario:
