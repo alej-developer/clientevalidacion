@@ -15,6 +15,24 @@ from datetime import datetime
 from pydantic import BaseModel, ConfigDict, EmailStr, Field, field_validator
 
 
+def _validar_complejidad_contrasena(valor: str) -> str:
+    """
+    Verifica los requisitos de complejidad de una contraseña.
+
+    Requisitos: al menos una mayúscula, una minúscula, un dígito
+    y un carácter especial. Compartida por CrearUsuario y ActualizarUsuario.
+    """
+    if not re.search(r"[A-Z]", valor):
+        raise ValueError("La contraseña debe contener al menos una letra mayúscula.")
+    if not re.search(r"[a-z]", valor):
+        raise ValueError("La contraseña debe contener al menos una letra minúscula.")
+    if not re.search(r"\d", valor):
+        raise ValueError("La contraseña debe contener al menos un dígito.")
+    if not re.search(r"[!@#$%^&*(),.?\":{}|<>_\-+=\[\]\\;'/~`]", valor):
+        raise ValueError("La contraseña debe contener al menos un carácter especial.")
+    return valor
+
+
 class UsuarioBase(BaseModel):
     """Campos compartidos entre todos los esquemas de Usuario."""
 
@@ -58,21 +76,9 @@ class CrearUsuario(UsuarioBase):
         """
         Valida que la contraseña cumpla los requisitos de complejidad.
 
-        Requisitos:
-        - Al menos una letra mayúscula.
-        - Al menos una letra minúscula.
-        - Al menos un dígito.
-        - Al menos un carácter especial.
+        Requisitos definidos en _validar_complejidad_contrasena.
         """
-        if not re.search(r"[A-Z]", valor):
-            raise ValueError("La contraseña debe contener al menos una letra mayúscula.")
-        if not re.search(r"[a-z]", valor):
-            raise ValueError("La contraseña debe contener al menos una letra minúscula.")
-        if not re.search(r"\d", valor):
-            raise ValueError("La contraseña debe contener al menos un dígito.")
-        if not re.search(r"[!@#$%^&*(),.?\":{}|<>_\-+=\[\]\\;'/~`]", valor):
-            raise ValueError("La contraseña debe contener al menos un carácter especial.")
-        return valor
+        return _validar_complejidad_contrasena(valor)
 
     @field_validator("nombre")
     @classmethod
@@ -125,15 +131,7 @@ class ActualizarUsuario(BaseModel):
         """Valida la complejidad de la contraseña si se proporciona."""
         if valor is None:
             return valor
-        if not re.search(r"[A-Z]", valor):
-            raise ValueError("La contraseña debe contener al menos una letra mayúscula.")
-        if not re.search(r"[a-z]", valor):
-            raise ValueError("La contraseña debe contener al menos una letra minúscula.")
-        if not re.search(r"\d", valor):
-            raise ValueError("La contraseña debe contener al menos un dígito.")
-        if not re.search(r"[!@#$%^&*(),.?\":{}|<>_\-+=\[\]\\;'/~`]", valor):
-            raise ValueError("La contraseña debe contener al menos un carácter especial.")
-        return valor
+        return _validar_complejidad_contrasena(valor)
 
     @field_validator("nombre")
     @classmethod

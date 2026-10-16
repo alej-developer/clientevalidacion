@@ -46,8 +46,7 @@ class RepositorioUsuario(RepositorioBase[Usuario]):
         resultado = await self.sesion.execute(consulta)
         usuario = resultado.scalar_one_or_none()
         _logger.debug(
-            "Búsqueda por email '%s' — %s",
-            email,
+            "Búsqueda por email — %s",
             "encontrado" if usuario else "no encontrado",
         )
         return usuario
@@ -71,7 +70,7 @@ class RepositorioUsuario(RepositorioBase[Usuario]):
         )
         resultado = await self.sesion.execute(consulta)
         existe = resultado.scalar_one_or_none() is not None
-        _logger.debug("Verificación de existencia para email '%s': %s", email, existe)
+        _logger.debug("Verificación de existencia de email: %s", existe)
         return existe
 
     async def listar_activos(

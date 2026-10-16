@@ -7,7 +7,13 @@ Proporciona la infraestructura de pruebas con:
 - Cliente HTTP asíncrono (httpx.AsyncClient) para realizar peticiones de prueba.
 """
 
+import os
 from collections.abc import AsyncIterator
+
+# Entorno de pruebas: la app no arranca con el JWT_SECRETO por defecto cuando
+# APP_DEBUG=false (hardening), así que los tests fijan uno propio antes de
+# importar la aplicación.
+os.environ.setdefault("JWT_SECRETO", "secreto-de-pruebas-de-32-caracteres-minimo-ok")
 
 import pytest
 from httpx import ASGITransport, AsyncClient
