@@ -10,6 +10,7 @@ import hashlib
 import secrets
 import uuid
 
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.excepciones.excepciones import (
@@ -131,7 +132,15 @@ class ServicioUsuario:
             "esta_activo": True,
         }
 
-        usuario = await self._repositorio.crear(datos_creacion)
+        try:
+            usuario = await self._repositorio.crear(datos_creacion)
+        except IntegrityError:
+            # Carrera: otro request creó el mismo email entre existe_email y el flush.
+            # El índice único parcial de la BD lo rechaza; se traduce a 409.
+            raise ConflictoError(
+                mensaje=f"El email '{datos.email}' ya está registrado.",
+                detalles={"campo": "email", "valor": datos.email},
+            )
         _logger.info("Usuario creado exitosamente: %s (ID: %s)", usuario.email, usuario.id)
 
         return RespuestaUsuario.model_validate(usuario)
@@ -308,7 +317,14 @@ class ServicioUsuario:
             _logger.debug("Actualización sin cambios para usuario ID %s", usuario_id)
             return RespuestaUsuario.model_validate(usuario)
 
-        usuario_actualizado = await self._repositorio.actualizar(usuario, datos_actualizacion)
+        try:
+            usuario_actualizado = await self._repositorio.actualizar(usuario, datos_actualizacion)
+        except IntegrityError:
+            # Carrera al cambiar el email: el índice único parcial lo rechaza; se traduce a 409.
+            raise ConflictoError(
+                mensaje=f"El email '{datos.email}' ya está en uso por otro usuario.",
+                detalles={"campo": "email", "valor": datos.email},
+            )
         _logger.info("Usuario actualizado: %s (ID: %s)", usuario_actualizado.email, usuario_id)
 
         return RespuestaUsuario.model_validate(usuario_actualizado)
