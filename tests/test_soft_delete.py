@@ -89,12 +89,18 @@ async def test_usuario_eliminado_no_aparece_en_listado(cliente_async: AsyncClien
 
 
 @pytest.mark.asyncio
-async def test_restaurar_usuario_eliminado(cliente_async: AsyncClient) -> None:
-    """POST /restaurar recupera al usuario eliminado, que vuelve a ser visible."""
+async def test_restaurar_tras_auto_eliminacion_requiere_admin(cliente_async: AsyncClient) -> None:
+    """
+    Tras auto-eliminarse, la restauración NO es posible por API (por ahora).
+
+    Con la autorización por propiedad, el propio token deja de resolver
+    al quedar eliminado (401) y cualquier otro usuario recibe 403.
+    La restauración queda como función de un futuro rol administrador.
+    """
     token, usuario = await _crear_y_login(cliente_async, USUARIO_BASE)
     usuario_id = usuario["id"]
 
-    # Soft delete
+    # Soft delete sobre la propia cuenta
     await cliente_async.delete(
         f"/api/v1/usuarios/{usuario_id}",
         headers={"Authorization": f"Bearer {token}"},
@@ -102,33 +108,34 @@ async def test_restaurar_usuario_eliminado(cliente_async: AsyncClient) -> None:
     # Confirmar que está oculto
     assert (await cliente_async.get(f"/api/v1/usuarios/{usuario_id}")).status_code == 404
 
-    # Necesitamos un token válido para restaurar — crear admin o reutilizar otro
-    # En este caso creamos un segundo usuario y usamos su token
-    admin_payload = {
-        "nombre": "Admin Restaurador",
-        "email": "admin@ejemplo.com",
+    # El propio token ya no resuelve (usuario eliminado): 401
+    resp_propio = await cliente_async.post(
+        f"/api/v1/usuarios/{usuario_id}/restaurar",
+        headers={"Authorization": f"Bearer {token}"},
+    )
+    assert resp_propio.status_code == 401
+
+    # Otro usuario autenticado: 403 (no es su cuenta)
+    otro_payload = {
+        "nombre": "Otro Usuario",
+        "email": "otro@ejemplo.com",
         "contrasena": "Password#123",
     }
-    admin_token, _ = await _crear_y_login(cliente_async, admin_payload)
-
-    # Restaurar
-    resp_restaurar = await cliente_async.post(
+    otro_token, _ = await _crear_y_login(cliente_async, otro_payload)
+    resp_otro = await cliente_async.post(
         f"/api/v1/usuarios/{usuario_id}/restaurar",
-        headers={"Authorization": f"Bearer {admin_token}"},
+        headers={"Authorization": f"Bearer {otro_token}"},
     )
-    assert resp_restaurar.status_code == 200
-    datos = resp_restaurar.json()
-    assert datos["id"] == usuario_id
-    assert datos["eliminado_en"] is None
+    assert resp_otro.status_code == 403
 
-    # Ahora vuelve a ser visible
+    # El usuario sigue oculto: nadie pudo restaurarlo por API
     resp_get = await cliente_async.get(f"/api/v1/usuarios/{usuario_id}")
-    assert resp_get.status_code == 200
+    assert resp_get.status_code == 404
 
 
 @pytest.mark.asyncio
-async def test_restaurar_id_inexistente_devuelve_404(cliente_async: AsyncClient) -> None:
-    """Restaurar un UUID que no corresponde a ningún usuario eliminado devuelve 404."""
+async def test_restaurar_id_ajeno_devuelve_403(cliente_async: AsyncClient) -> None:
+    """Restaurar un UUID ajeno devuelve 403 (no revela si existe o no)."""
     import uuid
 
     token, _ = await _crear_y_login(cliente_async, USUARIO_BASE)
@@ -138,7 +145,7 @@ async def test_restaurar_id_inexistente_devuelve_404(cliente_async: AsyncClient)
         f"/api/v1/usuarios/{uuid_falso}/restaurar",
         headers={"Authorization": f"Bearer {token}"},
     )
-    assert resp.status_code == 404
+    assert resp.status_code == 403
 
 
 @pytest.mark.asyncio
