@@ -20,6 +20,11 @@ _config = obtener_configuracion()
 # Algoritmo de firma
 ALGORITMO = "HS256"
 
+# Cookie de autenticación (JWT httpOnly) y cabecera anti-CSRF
+NOMBRE_COOKIE_AUTH = "cv_access_token"
+CABECERA_CSRF = "x-requested-with"
+VALOR_CSRF_ESPERADO = "XMLHttpRequest"
+
 
 def crear_access_token(
     sub: str,

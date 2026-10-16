@@ -11,9 +11,9 @@ from fastapi import APIRouter, Depends, Request, Response
 from fastapi.security import OAuth2PasswordRequestForm
 
 from app.api.deps import obtener_servicio_usuario, obtener_usuario_actual
-from app.core.config import obtener_configuracion
+from app.core.config import _cookie_segura_efectiva, obtener_configuracion
 from app.core.limiter import limiter
-from app.core.seguridad import crear_access_token
+from app.core.seguridad import NOMBRE_COOKIE_AUTH, crear_access_token
 from app.esquemas.token import Token
 from app.esquemas.usuario import RespuestaUsuario
 from app.servicios.usuario import ServicioUsuario
@@ -57,10 +57,22 @@ async def login(
         contrasena=formulario.password,
     )
     token = crear_access_token(sub=str(usuario.id))
+    expira_en = _config.jwt_expiracion_minutos * 60
+
+    # Cookie httpOnly para el frontend web (Bearer sigue disponible).
+    response.set_cookie(
+        key=NOMBRE_COOKIE_AUTH,
+        value=token,
+        max_age=expira_en,
+        httponly=True,
+        secure=_cookie_segura_efectiva(_config),
+        samesite="lax",
+        path="/",
+    )
     return Token(
         access_token=token,
         token_type="bearer",
-        expira_en=_config.jwt_expiracion_minutos * 60,
+        expira_en=expira_en,
     )
 
 
@@ -79,3 +91,28 @@ async def obtener_yo(
 ) -> RespuestaUsuario:
     """Retorna el perfil del usuario autenticado."""
     return usuario_actual
+
+
+@router.post(
+    "/logout",
+    status_code=204,
+    summary="Cerrar sesión",
+    description=(
+        "Borra la cookie httpOnly de sesión. No requiere autenticación: "
+        "limpiar una cookie es inofensivo. El token Bearer, si existe, "
+        "sigue siendo válido hasta su expiración (la revocación llega "
+        "con los refresh tokens)."
+    ),
+    responses={
+        204: {"description": "Sesión cerrada (cookie eliminada)"},
+    },
+)
+async def logout(response: Response) -> None:
+    """Elimina la cookie httpOnly de autenticación."""
+    response.delete_cookie(
+        key=NOMBRE_COOKIE_AUTH,
+        httponly=True,
+        secure=_cookie_segura_efectiva(_config),
+        samesite="lax",
+        path="/",
+    )
