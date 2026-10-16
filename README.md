@@ -180,7 +180,8 @@ Documentacion interactiva:
 
 | Metodo | Ruta | Descripcion | Autenticacion | Rate Limit |
 |--------|------|-------------|---------------|------------|
-| `POST` | `/api/v1/auth/login` | Login con credenciales -> Token JWT | No | 10/min |
+| `POST` | `/api/v1/auth/login` | Login -> Token JWT + cookie httpOnly | No | 10/min |
+| `POST` | `/api/v1/auth/logout` | Cierra sesion (borra la cookie) | No | 60/min |
 | `GET` | `/api/v1/auth/yo` | Perfil del usuario autenticado | Si (Bearer) | 60/min |
 
 ### Usuarios (`/api/v1/usuarios`)
@@ -217,6 +218,23 @@ curl -X POST http://localhost:8000/api/v1/auth/login \
 curl -X GET http://localhost:8000/api/v1/auth/yo \
   -H "Authorization: Bearer <TOKEN_AQUI>"
 ```
+
+---
+
+## Autenticacion por cookie httpOnly (frontend web)
+
+Ademas del token Bearer, `POST /auth/login` fija una cookie **httpOnly**
+(`cv_access_token`) pensada para el frontend web:
+
+- **Dual**: las rutas protegidas aceptan Bearer (Swagger, curl) o la cookie.
+- **Secure** por defecto fuera de desarrollo (`COOKIE_SEGURA=false` en local http).
+- **SameSite=Lax** y mutaciones por cookie protegidas con **CSRF**: todo
+  POST/PATCH/DELETE autenticado por cookie debe enviar la cabecera
+  `X-Requested-With: XMLHttpRequest` (el Bearer esta exento).
+- `POST /auth/logout` borra la cookie. El Bearer sigue valido hasta expirar.
+
+El frontend debe llamar a la API con `credentials: "include"` (fetch) o
+equivalente para enviar/recibir la cookie.
 
 ---
 

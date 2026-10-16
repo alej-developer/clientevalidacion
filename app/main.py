@@ -25,6 +25,7 @@ from app.core.database import motor_asincrono
 from app.core.excepciones.excepciones import ExcepcionBase
 from app.core.limiter import limiter
 from app.core.logging import configurar_logging, obtener_logger
+from app.core.seguridad import CABECERA_CSRF, NOMBRE_COOKIE_AUTH, VALOR_CSRF_ESPERADO
 from app.esquemas.salud import RespuestaSalud
 
 _config = obtener_configuracion()
@@ -176,6 +177,42 @@ async def _manejador_excepciones_no_controladas(
             "detalles": {},
         },
     )
+
+
+# --- Middleware anti-CSRF ---
+# Las mutaciones autenticadas por cookie (sin cabecera Authorization) deben
+# llevar la cabecera X-Requested-With: un navegador no la puede enviar en
+# peticiones cross-site simples. Con SameSite=Lax + esta cabecera, un sitio
+# ajeno no puede ejecutar acciones en nombre del usuario autenticado.
+_METODOS_SEGUROS = {"GET", "HEAD", "OPTIONS"}
+# Rutas que no dependen de la cookie para autenticar: login y registro son
+# puntos de entrada públicos y logout es inofensivo (borra la cookie).
+_RUTAS_EXENTAS_CSRF = {
+    "/api/v1/auth/login",
+    "/api/v1/auth/logout",
+    "/api/v1/usuarios",  # POST de registro es público
+}
+
+
+@app.middleware("http")
+async def _middleware_csrf(request: Request, call_next):  # type: ignore[no-untyped-def]
+    """Exige X-Requested-With en mutaciones autenticadas por cookie."""
+    if (
+        request.method not in _METODOS_SEGUROS
+        and request.url.path not in _RUTAS_EXENTAS_CSRF
+        and "authorization" not in request.headers
+        and NOMBRE_COOKIE_AUTH in request.cookies
+        and request.headers.get(CABECERA_CSRF) != VALOR_CSRF_ESPERADO
+    ):
+        return JSONResponse(
+            status_code=403,
+            content={
+                "exito": False,
+                "error": f"Falta la cabecera {CABECERA_CSRF} (protección CSRF).",
+                "detalles": {},
+            },
+        )
+    return await call_next(request)
 
 
 # --- Middleware CORS ---

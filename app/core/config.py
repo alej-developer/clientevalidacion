@@ -57,6 +57,11 @@ class Configuracion(BaseSettings):
 
     jwt_expiracion_minutos: int = 60
 
+    # --- Cookie de autenticación ---
+    # None = automático: segura (Secure) salvo en desarrollo (APP_DEBUG=true,
+    # donde http://localhost no acepta cookies Secure).
+    cookie_segura: bool | None = None
+
     # --- Logging ---
     log_nivel: str = "INFO"
 
@@ -108,6 +113,13 @@ class Configuracion(BaseSettings):
         if isinstance(valor, list):
             return [str(item) for item in valor]
         return [str(valor)]
+
+
+def _cookie_segura_efectiva(config: "Configuracion") -> bool:
+    """Resuelve si la cookie de auth lleva el flag Secure."""
+    if config.cookie_segura is not None:
+        return config.cookie_segura
+    return not config.app_debug
 
 
 @lru_cache(maxsize=1)

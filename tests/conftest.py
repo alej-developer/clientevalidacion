@@ -14,6 +14,8 @@ from collections.abc import AsyncIterator
 # APP_DEBUG=false (hardening), así que los tests fijan uno propio antes de
 # importar la aplicación.
 os.environ.setdefault("JWT_SECRETO", "secreto-de-pruebas-de-32-caracteres-minimo-ok")
+# El cliente de pruebas habla por http://test: cookies sin flag Secure.
+os.environ.setdefault("COOKIE_SEGURA", "false")
 
 import pytest
 from httpx import ASGITransport, AsyncClient
