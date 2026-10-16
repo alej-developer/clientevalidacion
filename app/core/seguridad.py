@@ -6,6 +6,8 @@ La verificación de contraseñas reutiliza el PBKDF2 ya implementado
 en ServicioUsuario para mantener consistencia en el proyecto.
 """
 
+import hashlib
+import secrets
 from datetime import UTC, datetime, timedelta
 from typing import Any
 
@@ -22,6 +24,9 @@ ALGORITMO = "HS256"
 
 # Cookie de autenticación (JWT httpOnly) y cabecera anti-CSRF
 NOMBRE_COOKIE_AUTH = "cv_access_token"
+# Cookie de refresh token: solo se envía a los endpoints /api/v1/auth/*
+NOMBRE_COOKIE_REFRESH = "cv_refresh_token"
+RUTA_COOKIE_REFRESH = "/api/v1/auth"
 CABECERA_CSRF = "x-requested-with"
 VALOR_CSRF_ESPERADO = "XMLHttpRequest"
 
@@ -90,3 +95,19 @@ def extraer_sub(token: str) -> str | None:
         return str(payload.get("sub"))
     except JWTError:
         return None
+
+
+def crear_refresh_token() -> str:
+    """
+    Genera un refresh token opaco criptográficamente seguro.
+
+    A diferencia del access token (JWT autofirmado), el refresh token es
+    una cadena aleatoria: solo su hash SHA-256 se almacena en la base de
+    datos, lo que permite revocarlo y limita el daño de una fuga de la BD.
+    """
+    return secrets.token_urlsafe(48)
+
+
+def hashear_refresh_token(token: str) -> str:
+    """Devuelve el hash SHA-256 (hex) de un refresh token en claro."""
+    return hashlib.sha256(token.encode("utf-8")).hexdigest()

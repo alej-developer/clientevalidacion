@@ -56,6 +56,8 @@ class Configuracion(BaseSettings):
     jwt_secreto: str = JWT_SECRETO_POR_DEFECTO
 
     jwt_expiracion_minutos: int = 60
+    # Duración del refresh token en días
+    jwt_refresh_expiracion_dias: int = 30
 
     # --- Cookie de autenticación ---
     # None = automático: segura (Secure) salvo en desarrollo (APP_DEBUG=true,

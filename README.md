@@ -180,8 +180,9 @@ Documentacion interactiva:
 
 | Metodo | Ruta | Descripcion | Autenticacion | Rate Limit |
 |--------|------|-------------|---------------|------------|
-| `POST` | `/api/v1/auth/login` | Login -> Token JWT + cookie httpOnly | No | 10/min |
-| `POST` | `/api/v1/auth/logout` | Cierra sesion (borra la cookie) | No | 60/min |
+| `POST` | `/api/v1/auth/login` | Login -> Token JWT + refresh + cookies httpOnly | No | 10/min |
+| `POST` | `/api/v1/auth/refresh` | Rota el refresh token y renueva el par | No | 10/min |
+| `POST` | `/api/v1/auth/logout` | Cierra sesion (revoca refresh, borra cookies) | No | 60/min |
 | `GET` | `/api/v1/auth/yo` | Perfil del usuario autenticado | Si (Bearer) | 60/min |
 
 ### Usuarios (`/api/v1/usuarios`)
@@ -231,7 +232,21 @@ Ademas del token Bearer, `POST /auth/login` fija una cookie **httpOnly**
 - **SameSite=Lax** y mutaciones por cookie protegidas con **CSRF**: todo
   POST/PATCH/DELETE autenticado por cookie debe enviar la cabecera
   `X-Requested-With: XMLHttpRequest` (el Bearer esta exento).
-- `POST /auth/logout` borra la cookie. El Bearer sigue valido hasta expirar.
+- `POST /auth/logout` revoca el refresh token y borra las cookies.
+
+### Refresh tokens
+
+- `POST /auth/login` devuelve tambien `refresh_token` (opaco, 30 dias por
+  defecto con `JWT_REFRESH_EXPIRACION_DIAS`) y fija la cookie httpOnly
+  `cv_refresh_token`, restringida a `/api/v1/auth/*`.
+- `POST /auth/refresh` acepta el refresh en el cuerpo JSON o en la cookie,
+  rota el token (el presentado queda revocado: reutilizarlo da 401) y
+  devuelve un nuevo par access + refresh. La rotacion conserva la
+  expiracion absoluta original.
+- Solo se almacena el hash SHA-256 del refresh token: puede revocarse y una
+  fuga de la BD no expone tokens utilizables.
+- El access token Bearer sigue valido hasta su expiracion natural (corta)
+  tras un logout; la revocacion real la aporta el refresh.
 
 El frontend debe llamar a la API con `credentials: "include"` (fetch) o
 equivalente para enviar/recibir la cookie.

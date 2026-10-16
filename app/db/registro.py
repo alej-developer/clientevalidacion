@@ -11,6 +11,7 @@ y scripts que necesiten acceso al metadata completo.
 """
 
 from app.db.base_class import ModeloBase
+from app.modelos.refresh_token import RefreshToken
 from app.modelos.usuario import Usuario
 
-__all__ = ["ModeloBase", "Usuario"]
+__all__ = ["ModeloBase", "RefreshToken", "Usuario"]
