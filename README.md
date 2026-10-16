@@ -4,8 +4,8 @@ API REST de gestion de usuarios construida con FastAPI, arquitectura limpia y Do
 
 [![Tests](https://img.shields.io/badge/tests-34%20passed-brightgreen?style=flat-square&logo=pytest)](https://github.com/alej-developer/clientevalidacion)
 [![Python](https://img.shields.io/badge/python-3.11%2B-blue?style=flat-square&logo=python)](https://www.python.org)
-[![FastAPI](https://img.shields.io/badge/FastAPI-0.115%2B-009688?style=flat-square&logo=fastapi)](https://fastapi.tiangolo.com)
-[![SQLAlchemy](https://img.shields.io/badge/SQLAlchemy-2.0%20async-red?style=flat-square)](https://www.sqlalchemy.org)
+[![FastAPI](https://img.shields.io/badge/FastAPI-0.143.2-009688?style=flat-square&logo=fastapi)](https://fastapi.tiangolo.com)
+[![SQLAlchemy](https://img.shields.io/badge/SQLAlchemy-2.1%20async-red?style=flat-square)](https://www.sqlalchemy.org)
 [![License](https://img.shields.io/badge/license-MIT-informational?style=flat-square)](LICENSE)
 
 ---
@@ -48,17 +48,17 @@ API REST de gestion de usuarios construida con FastAPI, arquitectura limpia y Do
 
 | Capa | Tecnologia | Version |
 |------|------------|---------|
-| Framework web | [FastAPI](https://fastapi.tiangolo.com) | `>= 0.115` |
-| Servidor ASGI | [Uvicorn](https://www.uvicorn.org) | `>= 0.30` |
-| Validacion | [Pydantic v2](https://docs.pydantic.dev) | `>= 2.9` |
-| ORM | [SQLAlchemy async](https://docs.sqlalchemy.org) | `>= 2.0` |
-| Base de datos (dev) | SQLite + aiosqlite | `>= 0.20` |
-| Migraciones | [Alembic](https://alembic.sqlalchemy.org) | `>= 1.13` |
-| Autenticacion | [python-jose](https://python-jose.readthedocs.io) | `>= 3.3` |
-| Rate Limiting | [slowapi](https://github.com/laurentS/slowapi) | `>= 0.1.10` |
-| Tests | [pytest-asyncio](https://pytest-asyncio.readthedocs.io) + [httpx](https://www.python-httpx.org) | `>= 8.3` |
-| Linter / Formatter | [Ruff](https://docs.astral.sh/ruff) | `>= 0.6` |
-| Tipado estatico | [mypy](https://mypy-lang.org) | `>= 1.11` |
+| Framework web | [FastAPI](https://fastapi.tiangolo.com) | `0.143.2` |
+| Servidor ASGI | [Uvicorn](https://www.uvicorn.org) | `0.54.0` |
+| Validacion | [Pydantic v2](https://docs.pydantic.dev) | `2.14.1` |
+| ORM | [SQLAlchemy async](https://docs.sqlalchemy.org) | `2.1.4` |
+| Base de datos (dev) | SQLite + aiosqlite | `0.22.1` |
+| Migraciones | [Alembic](https://alembic.sqlalchemy.org) | `1.20.0` |
+| Autenticacion | [python-jose](https://python-jose.readthedocs.io) | `3.5.0` |
+| Rate Limiting | [slowapi](https://github.com/laurentS/slowapi) | `0.1.10` |
+| Tests | [pytest](https://docs.pytest.org) + [httpx](https://www.python-httpx.org) | `9.1.1` / `0.28.1` |
+| Linter / Formatter | [Ruff](https://docs.astral.sh/ruff) | `0.17.1` |
+| Tipado estatico | [mypy](https://mypy-lang.org) | `2.4.0` |
 
 ---
 
