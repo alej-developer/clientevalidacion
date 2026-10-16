@@ -23,8 +23,9 @@ from app.core.logging import obtener_logger
 from app.esquemas.usuario import (
     ActualizarUsuario,
     CrearUsuario,
-    RespuestaListaUsuarios,
+    RespuestaListaUsuariosPublica,
     RespuestaUsuario,
+    RespuestaUsuarioPublica,
 )
 from app.modelos.usuario import Usuario
 from app.repositorios.usuario import RepositorioUsuario
@@ -201,9 +202,12 @@ class ServicioUsuario:
         esta_activo: bool | None = None,
         ordenar_por: str = "creado_en",
         orden: str = "desc",
-    ) -> RespuestaListaUsuarios:
+    ) -> RespuestaListaUsuariosPublica:
         """
         Lista usuarios con paginación, filtros de búsqueda y ordenación.
+
+        Devuelve la vista pública (sin email): la API es abierta a
+        propósito (portafolio) y no expone datos de contacto.
 
         Args:
             pagina: Número de página (mínimo 1).
@@ -257,8 +261,8 @@ class ServicioUsuario:
             por_pagina=por_pagina,
         )
 
-        return RespuestaListaUsuarios(
-            elementos=[RespuestaUsuario.model_validate(u) for u in usuarios],
+        return RespuestaListaUsuariosPublica(
+            elementos=[RespuestaUsuarioPublica.model_validate(u) for u in usuarios],
             total=total,
             pagina=pagina,
             por_pagina=por_pagina,

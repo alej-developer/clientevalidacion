@@ -9,22 +9,33 @@ import uuid
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, Path, Query, Request, status
+from fastapi.security import OAuth2PasswordBearer
+from jose import JWTError
 
 from app.api.deps import obtener_servicio_usuario, obtener_usuario_actual
 from app.core.config import obtener_configuracion
 from app.core.excepciones.excepciones import ProhibidoError
 from app.core.limiter import limiter
+from app.core.seguridad import decodificar_token
 from app.esquemas.usuario import (
     ActualizarUsuario,
     CrearUsuario,
-    RespuestaListaUsuarios,
+    RespuestaListaUsuariosPublica,
     RespuestaUsuario,
+    RespuestaUsuarioPublica,
 )
 from app.servicios.usuario import ServicioUsuario
 
 router = APIRouter(prefix="/usuarios", tags=["Usuarios"])
 
 _config = obtener_configuracion()
+
+# Bearer opcional: si el dueño consulta su propio detalle con token,
+# recibe la vista completa (con email); sin token, la vista pública.
+_oauth2_opcional = OAuth2PasswordBearer(
+    tokenUrl="/api/v1/auth/login",
+    auto_error=False,
+)
 
 
 def _verificar_propiedad(usuario_id: uuid.UUID, usuario_actual: RespuestaUsuario) -> None:
@@ -76,12 +87,13 @@ async def crear_usuario(
 
 @router.get(
     "",
-    response_model=RespuestaListaUsuarios,
+    response_model=RespuestaListaUsuariosPublica,
     status_code=status.HTTP_200_OK,
     summary="Listar usuarios paginados",
     description=(
         "Devuelve un listado paginado de usuarios con soporte para búsqueda por texto "
-        "(nombre o email), filtrado por estado de activación y ordenación personalizada."
+        "(nombre o email), filtrado por estado de activación y ordenación personalizada. "
+        "Vista pública: no incluye emails (API abierta de portafolio)."
     ),
     responses={
         200: {"description": "Lista de usuarios recuperada exitosamente"},
@@ -120,7 +132,7 @@ async def listar_usuarios(
         str,
         Query(description="Dirección de la ordenación ('asc' o 'desc')", pattern="^(asc|desc)$"),
     ] = "desc",
-) -> RespuestaListaUsuarios:
+) -> RespuestaListaUsuariosPublica:
     """Devuelve la lista paginada y filtrada de usuarios."""
     return await servicio.listar_usuarios(
         pagina=pagina,
@@ -134,12 +146,16 @@ async def listar_usuarios(
 
 @router.get(
     "/{usuario_id}",
-    response_model=RespuestaUsuario,
+    response_model=None,
     status_code=status.HTTP_200_OK,
     summary="Obtener usuario por ID",
-    description="Recupera la información detallada de un usuario por su identificador UUID.",
+    description=(
+        "Recupera la información de un usuario por su identificador UUID. "
+        "Vista pública sin email; si el propio usuario se autentica con su "
+        "token Bearer, recibe su vista completa (con email)."
+    ),
     responses={
-        200: {"description": "Usuario encontrado"},
+        200: {"description": "Usuario encontrado (vista pública o completa si es el propietario)"},
         404: {"description": "Usuario no encontrado"},
         422: {"description": "Formato de UUID inválido"},
     },
@@ -147,9 +163,23 @@ async def listar_usuarios(
 async def obtener_usuario(
     usuario_id: Annotated[uuid.UUID, Path(description="UUID único del usuario")],
     servicio: Annotated[ServicioUsuario, Depends(obtener_servicio_usuario)],
-) -> RespuestaUsuario:
-    """Busca y retorna un usuario por su ID."""
-    return await servicio.obtener_usuario(usuario_id)
+    token: Annotated[str | None, Depends(_oauth2_opcional)] = None,
+) -> RespuestaUsuario | RespuestaUsuarioPublica:
+    """
+    Busca y retorna un usuario por su ID.
+
+    - Sin token (o token de otro usuario): vista pública, sin email.
+    - Con el token del propio usuario: vista completa, con email.
+    """
+    usuario = await servicio.obtener_usuario(usuario_id)
+    if token is not None:
+        try:
+            payload = decodificar_token(token)
+            if payload.get("sub") == str(usuario_id):
+                return usuario
+        except JWTError:
+            pass  # Token inválido: se sirve la vista pública
+    return RespuestaUsuarioPublica.model_validate(usuario)
 
 
 @router.patch(

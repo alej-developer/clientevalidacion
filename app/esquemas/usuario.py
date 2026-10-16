@@ -173,3 +173,29 @@ class RespuestaListaUsuarios(BaseModel):
     total: int = Field(description="Número total de registros")
     pagina: int = Field(description="Página actual")
     por_pagina: int = Field(description="Elementos por página")
+
+
+class RespuestaUsuarioPublica(BaseModel):
+    """
+    Vista pública de un usuario (API abierta de portafolio).
+
+    NO incluye email ni marcas de borrado: la API es pública a propósito
+    y los listados no exponen datos de contacto. El email solo lo ve
+    el propio usuario autenticado (GET /auth/yo o su propio detalle).
+    """
+
+    model_config = ConfigDict(from_attributes=True)
+
+    id: uuid.UUID = Field(description="Identificador único del usuario")
+    nombre: str = Field(description="Nombre completo del usuario")
+    esta_activo: bool = Field(description="Indica si la cuenta está activa")
+    creado_en: datetime = Field(description="Fecha de creación del registro")
+
+
+class RespuestaListaUsuariosPublica(BaseModel):
+    """Esquema de respuesta paginada para el listado público (sin emails)."""
+
+    elementos: list[RespuestaUsuarioPublica] = Field(description="Lista de usuarios")
+    total: int = Field(description="Número total de registros")
+    pagina: int = Field(description="Página actual")
+    por_pagina: int = Field(description="Elementos por página")
