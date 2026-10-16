@@ -50,11 +50,21 @@ class Configuracion(BaseSettings):
     cors_origenes: list[str] = ["http://localhost:3000", "http://localhost:5173"]
 
     # --- JWT ---
-    jwt_secreto: str = "cambia-esto-en-produccion-con-un-secreto-fuerte-de-32-chars"
+    # Obligatorio: sin JWT_SECRETO (o si está vacío) la aplicación no arranca.
+    jwt_secreto: str
     jwt_expiracion_minutos: int = 60
 
     # --- Logging ---
     log_nivel: str = "INFO"
+
+    @field_validator("jwt_secreto")
+    @classmethod
+    def validar_jwt_secreto(cls, valor: str) -> str:
+        """Rechaza un secreto vacío para que la aplicación no arranque sin clave."""
+        if not valor.strip():
+            msg = "JWT_SECRETO es obligatorio y no puede estar vacío"
+            raise ValueError(msg)
+        return valor
 
     @field_validator("log_nivel")
     @classmethod
@@ -97,4 +107,5 @@ def obtener_configuracion() -> Configuracion:
     Retorna:
         Instancia única de Configuracion con las variables de entorno cargadas.
     """
-    return Configuracion()
+    # JWT_SECRETO y el resto llegan por el entorno; si falta, pydantic no arranca.
+    return Configuracion()  # type: ignore[call-arg]
