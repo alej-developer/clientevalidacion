@@ -190,9 +190,9 @@ Documentacion interactiva:
 | `POST` | `/api/v1/usuarios` | Registrar nuevo usuario | No |
 | `GET` | `/api/v1/usuarios` | Listar usuarios (paginacion, busqueda `q`, filtro `esta_activo`, orden) | No |
 | `GET` | `/api/v1/usuarios/{id}` | Obtener detalle de usuario por UUID | No |
-| `PATCH` | `/api/v1/usuarios/{id}` | Actualizacion parcial de datos | Si (Bearer) |
-| `DELETE` | `/api/v1/usuarios/{id}` | Soft delete (borrado logico) | Si (Bearer) |
-| `POST` | `/api/v1/usuarios/{id}/restaurar` | Restaurar usuario eliminado | Si (Bearer) |
+| `PATCH` | `/api/v1/usuarios/{id}` | Actualizacion parcial de datos | Si (Bearer, solo la propia cuenta) |
+| `DELETE` | `/api/v1/usuarios/{id}` | Soft delete (borrado logico) | Si (Bearer, solo la propia cuenta) |
+| `POST` | `/api/v1/usuarios/{id}/restaurar` | Restaurar usuario eliminado | Si (Bearer, solo la propia cuenta) |
 
 ---
 

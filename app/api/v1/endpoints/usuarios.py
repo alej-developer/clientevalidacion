@@ -12,6 +12,7 @@ from fastapi import APIRouter, Depends, Path, Query, Request, status
 
 from app.api.deps import obtener_servicio_usuario, obtener_usuario_actual
 from app.core.config import obtener_configuracion
+from app.core.excepciones.excepciones import ProhibidoError
 from app.core.limiter import limiter
 from app.esquemas.usuario import (
     ActualizarUsuario,
@@ -24,6 +25,25 @@ from app.servicios.usuario import ServicioUsuario
 router = APIRouter(prefix="/usuarios", tags=["Usuarios"])
 
 _config = obtener_configuracion()
+
+
+def _verificar_propiedad(usuario_id: uuid.UUID, usuario_actual: RespuestaUsuario) -> None:
+    """
+    Exige que el usuario autenticado actúe sobre su propia cuenta.
+
+    Autorización por propiedad: cada usuario solo puede modificar, borrar
+    o restaurar su propio registro. Punto de extensión para un futuro
+    rol administrador que pueda operar sobre cualquier cuenta.
+
+    Args:
+        usuario_id: UUID del usuario objetivo de la operación.
+        usuario_actual: Usuario autenticado dueño del token JWT.
+
+    Raises:
+        ProhibidoError: Si el objetivo no es la propia cuenta (HTTP 403).
+    """
+    if usuario_actual.id != usuario_id:
+        raise ProhibidoError(mensaje="Solo puedes gestionar tu propia cuenta.")
 
 
 @router.post(
@@ -143,6 +163,7 @@ async def obtener_usuario(
     ),
     responses={
         200: {"description": "Usuario actualizado exitosamente"},
+        403: {"description": "Prohibido: solo puedes modificar tu propia cuenta"},
         404: {"description": "Usuario no encontrado"},
         409: {"description": "Conflicto: El nuevo email ya está en uso"},
         422: {"description": "Error de validación en los campos enviados"},
@@ -152,9 +173,10 @@ async def actualizar_usuario(
     usuario_id: Annotated[uuid.UUID, Path(description="UUID único del usuario")],
     datos: ActualizarUsuario,
     servicio: Annotated[ServicioUsuario, Depends(obtener_servicio_usuario)],
-    _: Annotated[RespuestaUsuario, Depends(obtener_usuario_actual)],
+    usuario_actual: Annotated[RespuestaUsuario, Depends(obtener_usuario_actual)],
 ) -> RespuestaUsuario:
-    """Actualiza parcialmente los datos de un usuario."""
+    """Actualiza parcialmente los datos de un usuario (solo la propia cuenta)."""
+    _verificar_propiedad(usuario_id=usuario_id, usuario_actual=usuario_actual)
     return await servicio.actualizar_usuario(usuario_id=usuario_id, datos=datos)
 
 
@@ -170,6 +192,7 @@ async def actualizar_usuario(
     responses={
         204: {"description": "Usuario marcado como eliminado exitosamente"},
         401: {"description": "No autorizado"},
+        403: {"description": "Prohibido: solo puedes eliminar tu propia cuenta"},
         404: {"description": "Usuario no encontrado"},
         422: {"description": "Formato de UUID inválido"},
     },
@@ -177,9 +200,10 @@ async def actualizar_usuario(
 async def eliminar_usuario(
     usuario_id: Annotated[uuid.UUID, Path(description="UUID único del usuario")],
     servicio: Annotated[ServicioUsuario, Depends(obtener_servicio_usuario)],
-    _: Annotated[RespuestaUsuario, Depends(obtener_usuario_actual)],
+    usuario_actual: Annotated[RespuestaUsuario, Depends(obtener_usuario_actual)],
 ) -> None:
-    """Realiza el borrado lógico (soft delete) de un usuario."""
+    """Realiza el borrado lógico (soft delete) de un usuario (solo la propia cuenta)."""
+    _verificar_propiedad(usuario_id=usuario_id, usuario_actual=usuario_actual)
     await servicio.eliminar_usuario(usuario_id)
 
 
@@ -195,6 +219,7 @@ async def eliminar_usuario(
     responses={
         200: {"description": "Usuario restaurado exitosamente"},
         401: {"description": "No autorizado"},
+        403: {"description": "Prohibido: solo puedes restaurar tu propia cuenta"},
         404: {"description": "No existe un usuario eliminado con ese ID"},
         422: {"description": "Formato de UUID inválido"},
     },
@@ -202,7 +227,8 @@ async def eliminar_usuario(
 async def restaurar_usuario(
     usuario_id: Annotated[uuid.UUID, Path(description="UUID del usuario eliminado a restaurar")],
     servicio: Annotated[ServicioUsuario, Depends(obtener_servicio_usuario)],
-    _: Annotated[RespuestaUsuario, Depends(obtener_usuario_actual)],
+    usuario_actual: Annotated[RespuestaUsuario, Depends(obtener_usuario_actual)],
 ) -> RespuestaUsuario:
-    """Restaura un usuario marcado con soft delete."""
+    """Restaura un usuario marcado con soft delete (solo la propia cuenta)."""
+    _verificar_propiedad(usuario_id=usuario_id, usuario_actual=usuario_actual)
     return await servicio.restaurar_usuario(usuario_id)
