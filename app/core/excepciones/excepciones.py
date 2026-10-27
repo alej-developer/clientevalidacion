@@ -1,9 +1,9 @@
 """
-Manejadores globales de excepciones para la aplicación.
+Excepciones de dominio de la aplicación.
 
-Define excepciones de dominio personalizadas y el middleware
-que captura errores no controlados, devolviendo respuestas
-JSON consistentes al cliente.
+Jerarquía de excepciones personalizadas con código de estado HTTP
+y detalles estructurados. Los manejadores globales que las convierten
+en respuestas JSON consistentes viven en app/main.py (handlers nativos).
 """
 
 from typing import Any

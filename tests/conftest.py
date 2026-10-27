@@ -16,6 +16,8 @@ os.environ.setdefault(
     "JWT_SECRETO",
     "clave-secreta-solo-para-tests-no-usar-en-produccion",
 )
+# El cliente de pruebas habla por http://test: cookies sin flag Secure.
+os.environ.setdefault("COOKIE_SEGURA", "false")
 
 import pytest  # noqa: E402
 from httpx import ASGITransport, AsyncClient  # noqa: E402

@@ -12,7 +12,25 @@ import re
 import uuid
 from datetime import datetime
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator
+from pydantic import BaseModel, ConfigDict, EmailStr, Field, field_validator
+
+
+def _validar_complejidad_contrasena(valor: str) -> str:
+    """
+    Verifica los requisitos de complejidad de una contraseña.
+
+    Requisitos: al menos una mayúscula, una minúscula, un dígito
+    y un carácter especial. Compartida por CrearUsuario y ActualizarUsuario.
+    """
+    if not re.search(r"[A-Z]", valor):
+        raise ValueError("La contraseña debe contener al menos una letra mayúscula.")
+    if not re.search(r"[a-z]", valor):
+        raise ValueError("La contraseña debe contener al menos una letra minúscula.")
+    if not re.search(r"\d", valor):
+        raise ValueError("La contraseña debe contener al menos un dígito.")
+    if not re.search(r"[!@#$%^&*(),.?\":{}|<>_\-+=\[\]\\;'/~`]", valor):
+        raise ValueError("La contraseña debe contener al menos un carácter especial.")
+    return valor
 
 
 class UsuarioBase(BaseModel):
@@ -24,7 +42,7 @@ class UsuarioBase(BaseModel):
         description="Nombre completo del usuario",
         examples=["Juan García López"],
     )
-    email: str = Field(
+    email: EmailStr = Field(
         max_length=255,
         description="Dirección de correo electrónico",
         examples=["juan.garcia@ejemplo.com"],
@@ -48,12 +66,8 @@ class CrearUsuario(UsuarioBase):
 
     @field_validator("email")
     @classmethod
-    def validar_formato_email(cls, valor: str) -> str:
-        """Valida que el email tenga un formato correcto."""
-        patron_email = r"^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$"
-        if not re.match(patron_email, valor):
-            msg = f"El formato del email '{valor}' no es válido."
-            raise ValueError(msg)
+    def normalizar_email(cls, valor: str) -> str:
+        """Normaliza el email (minúsculas, sin espacios). El formato lo valida EmailStr."""
         return valor.lower().strip()
 
     @field_validator("contrasena")
@@ -62,21 +76,9 @@ class CrearUsuario(UsuarioBase):
         """
         Valida que la contraseña cumpla los requisitos de complejidad.
 
-        Requisitos:
-        - Al menos una letra mayúscula.
-        - Al menos una letra minúscula.
-        - Al menos un dígito.
-        - Al menos un carácter especial.
+        Requisitos definidos en _validar_complejidad_contrasena.
         """
-        if not re.search(r"[A-Z]", valor):
-            raise ValueError("La contraseña debe contener al menos una letra mayúscula.")
-        if not re.search(r"[a-z]", valor):
-            raise ValueError("La contraseña debe contener al menos una letra minúscula.")
-        if not re.search(r"\d", valor):
-            raise ValueError("La contraseña debe contener al menos un dígito.")
-        if not re.search(r"[!@#$%^&*(),.?\":{}|<>_\-+=\[\]\\;'/~`]", valor):
-            raise ValueError("La contraseña debe contener al menos un carácter especial.")
-        return valor
+        return _validar_complejidad_contrasena(valor)
 
     @field_validator("nombre")
     @classmethod
@@ -99,7 +101,7 @@ class ActualizarUsuario(BaseModel):
         max_length=150,
         description="Nuevo nombre completo del usuario",
     )
-    email: str | None = Field(
+    email: EmailStr | None = Field(
         default=None,
         max_length=255,
         description="Nueva dirección de correo electrónico",
@@ -117,14 +119,10 @@ class ActualizarUsuario(BaseModel):
 
     @field_validator("email")
     @classmethod
-    def validar_formato_email(cls, valor: str | None) -> str | None:
-        """Valida el formato del email si se proporciona."""
+    def normalizar_email(cls, valor: str | None) -> str | None:
+        """Normaliza el email si se proporciona. El formato lo valida EmailStr."""
         if valor is None:
             return valor
-        patron_email = r"^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$"
-        if not re.match(patron_email, valor):
-            msg = f"El formato del email '{valor}' no es válido."
-            raise ValueError(msg)
         return valor.lower().strip()
 
     @field_validator("contrasena")
@@ -133,15 +131,7 @@ class ActualizarUsuario(BaseModel):
         """Valida la complejidad de la contraseña si se proporciona."""
         if valor is None:
             return valor
-        if not re.search(r"[A-Z]", valor):
-            raise ValueError("La contraseña debe contener al menos una letra mayúscula.")
-        if not re.search(r"[a-z]", valor):
-            raise ValueError("La contraseña debe contener al menos una letra minúscula.")
-        if not re.search(r"\d", valor):
-            raise ValueError("La contraseña debe contener al menos un dígito.")
-        if not re.search(r"[!@#$%^&*(),.?\":{}|<>_\-+=\[\]\\;'/~`]", valor):
-            raise ValueError("La contraseña debe contener al menos un carácter especial.")
-        return valor
+        return _validar_complejidad_contrasena(valor)
 
     @field_validator("nombre")
     @classmethod
@@ -178,6 +168,32 @@ class RespuestaListaUsuarios(BaseModel):
     """Esquema de respuesta paginada para listados de usuarios."""
 
     elementos: list[RespuestaUsuario] = Field(description="Lista de usuarios")
+    total: int = Field(description="Número total de registros")
+    pagina: int = Field(description="Página actual")
+    por_pagina: int = Field(description="Elementos por página")
+
+
+class RespuestaUsuarioPublica(BaseModel):
+    """
+    Vista pública de un usuario (API abierta de portafolio).
+
+    NO incluye email ni marcas de borrado: la API es pública a propósito
+    y los listados no exponen datos de contacto. El email solo lo ve
+    el propio usuario autenticado (GET /auth/yo o su propio detalle).
+    """
+
+    model_config = ConfigDict(from_attributes=True)
+
+    id: uuid.UUID = Field(description="Identificador único del usuario")
+    nombre: str = Field(description="Nombre completo del usuario")
+    esta_activo: bool = Field(description="Indica si la cuenta está activa")
+    creado_en: datetime = Field(description="Fecha de creación del registro")
+
+
+class RespuestaListaUsuariosPublica(BaseModel):
+    """Esquema de respuesta paginada para el listado público (sin emails)."""
+
+    elementos: list[RespuestaUsuarioPublica] = Field(description="Lista de usuarios")
     total: int = Field(description="Número total de registros")
     pagina: int = Field(description="Página actual")
     por_pagina: int = Field(description="Elementos por página")

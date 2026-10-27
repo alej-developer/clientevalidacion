@@ -2,7 +2,7 @@
 
 API REST de gestion de usuarios construida con FastAPI, arquitectura limpia y Domain-Driven Design simplificado.
 
-[![Tests](https://img.shields.io/badge/tests-34%20passed-brightgreen?style=flat-square&logo=pytest)](https://github.com/alej-developer/clientevalidacion)
+[![Tests](https://img.shields.io/badge/tests-77%20passed-brightgreen?style=flat-square&logo=pytest)](https://github.com/alej-developer/clientevalidacion)
 [![Python](https://img.shields.io/badge/python-3.11%2B-blue?style=flat-square&logo=python)](https://www.python.org)
 [![FastAPI](https://img.shields.io/badge/FastAPI-0.143.2-009688?style=flat-square&logo=fastapi)](https://fastapi.tiangolo.com)
 [![SQLAlchemy](https://img.shields.io/badge/SQLAlchemy-2.1%20async-red?style=flat-square)](https://www.sqlalchemy.org)
@@ -55,6 +55,7 @@ API REST de gestion de usuarios construida con FastAPI, arquitectura limpia y Do
 | Base de datos (dev) | SQLite + aiosqlite | `0.22.1` |
 | Migraciones | [Alembic](https://alembic.sqlalchemy.org) | `1.20.0` |
 | Autenticacion | [python-jose](https://python-jose.readthedocs.io) | `3.5.0` |
+| Email | [email-validator](https://github.com/JoshData/python-email-validator) | `2.3.0` |
 | Rate Limiting | [slowapi](https://github.com/laurentS/slowapi) | `0.1.10` |
 | Tests | [pytest](https://docs.pytest.org) + [httpx](https://www.python-httpx.org) | `9.1.1` / `0.28.1` |
 | Linter / Formatter | [Ruff](https://docs.astral.sh/ruff) | `0.17.1` |
@@ -146,9 +147,13 @@ BD_URL="sqlite+aiosqlite:///./desarrollo.db"
 # CORS
 CORS_ORIGENES='["http://localhost:3000","http://localhost:5173"]'
 
-# JWT (obligatorio)
+# Cookie (opcional). Sin valor: Secure salvo en desarrollo (APP_DEBUG=true)
+# COOKIE_SEGURA=true
+
+# JWT (obligatorio, sin valor por defecto)
 JWT_SECRETO=
 JWT_EXPIRACION_MINUTOS=60
+JWT_REFRESH_EXPIRACION_DIAS=30
 
 # Rate Limiting
 LIMITE_POR_DEFECTO="60/minute"
@@ -185,7 +190,9 @@ Documentacion interactiva:
 
 | Metodo | Ruta | Descripcion | Autenticacion | Rate Limit |
 |--------|------|-------------|---------------|------------|
-| `POST` | `/api/v1/auth/login` | Login con credenciales -> Token JWT | No | 10/min |
+| `POST` | `/api/v1/auth/login` | Login -> Token JWT + refresh + cookies httpOnly | No | 10/min |
+| `POST` | `/api/v1/auth/refresh` | Rota el refresh token y renueva el par | No | 10/min |
+| `POST` | `/api/v1/auth/logout` | Cierra sesion (revoca refresh, borra cookies) | No | 60/min |
 | `GET` | `/api/v1/auth/yo` | Perfil del usuario autenticado | Si (Bearer) | 60/min |
 
 ### Usuarios (`/api/v1/usuarios`)
@@ -193,11 +200,11 @@ Documentacion interactiva:
 | Metodo | Ruta | Descripcion | Autenticacion |
 |--------|------|-------------|---------------|
 | `POST` | `/api/v1/usuarios` | Registrar nuevo usuario | No |
-| `GET` | `/api/v1/usuarios` | Listar usuarios (paginacion, busqueda `q`, filtro `esta_activo`, orden) | No |
-| `GET` | `/api/v1/usuarios/{id}` | Obtener detalle de usuario por UUID | No |
-| `PATCH` | `/api/v1/usuarios/{id}` | Actualizacion parcial de datos | Si (Bearer) |
-| `DELETE` | `/api/v1/usuarios/{id}` | Soft delete (borrado logico) | Si (Bearer) |
-| `POST` | `/api/v1/usuarios/{id}/restaurar` | Restaurar usuario eliminado | Si (Bearer) |
+| `GET` | `/api/v1/usuarios` | Listar usuarios (paginacion, busqueda `q`, filtro `esta_activo`, orden). Vista publica: sin email | No |
+| `GET` | `/api/v1/usuarios/{id}` | Detalle por UUID. Vista publica sin email; con el token del propio usuario, vista completa | No (opcional) |
+| `PATCH` | `/api/v1/usuarios/{id}` | Actualizacion parcial de datos | Si (Bearer, solo la propia cuenta) |
+| `DELETE` | `/api/v1/usuarios/{id}` | Soft delete (borrado logico) | Si (Bearer, solo la propia cuenta) |
+| `POST` | `/api/v1/usuarios/{id}/restaurar` | Restaurar usuario eliminado | Si (Bearer, solo la propia cuenta) |
 
 ---
 
@@ -225,12 +232,58 @@ curl -X GET http://localhost:8000/api/v1/auth/yo \
 
 ---
 
+## Autenticacion por cookie httpOnly (frontend web)
+
+Ademas del token Bearer, `POST /auth/login` fija una cookie **httpOnly**
+(`cv_access_token`) pensada para el frontend web:
+
+- **Dual**: las rutas protegidas aceptan Bearer (Swagger, curl) o la cookie.
+- **Secure** por defecto fuera de desarrollo (`COOKIE_SEGURA=false` en local http).
+- **SameSite=Lax** y mutaciones por cookie protegidas con **CSRF**: todo
+  POST/PATCH/DELETE autenticado por cookie debe enviar la cabecera
+  `X-Requested-With: XMLHttpRequest` (el Bearer esta exento).
+- `POST /auth/logout` revoca el refresh token y borra las cookies.
+
+### Refresh tokens
+
+- `POST /auth/login` devuelve tambien `refresh_token` (opaco, 30 dias por
+  defecto con `JWT_REFRESH_EXPIRACION_DIAS`) y fija la cookie httpOnly
+  `cv_refresh_token`, restringida a `/api/v1/auth/*`.
+- `POST /auth/refresh` acepta el refresh en el cuerpo JSON o en la cookie,
+  rota el token (el presentado queda revocado: reutilizarlo da 401) y
+  devuelve un nuevo par access + refresh. La rotacion conserva la
+  expiracion absoluta original.
+- Solo se almacena el hash SHA-256 del refresh token: puede revocarse y una
+  fuga de la BD no expone tokens utilizables.
+- El access token Bearer sigue valido hasta su expiracion natural (corta)
+  tras un logout; la revocacion real la aporta el refresh.
+
+El frontend debe llamar a la API con `credentials: "include"` (fetch) o
+equivalente para enviar/recibir la cookie.
+
+---
+
 ## Rate Limiting
 
 El sistema implementa limitacion de tasa mediante `slowapi`:
-- **Autenticacion (`/api/v1/auth/login`)**: maximo 10 solicitudes por minuto por direccion IP.
+- **Autenticacion (`/api/v1/auth/login`) y registro (`POST /api/v1/usuarios`)**: maximo 10 solicitudes por minuto por direccion IP.
 - **Rutas generales**: maximo 60 solicitudes por minuto por defecto.
 - Las solicitudes excedidas reciben codigo de estado `429 Too Many Requests`.
+
+---
+
+## Datos de demostracion (portafolio)
+
+La API es publica a proposito: las lecturas (`GET /usuarios`, `GET /usuarios/{id}`)
+no exponen emails. Para la demo desplegada se usan datos 100% ficticios:
+
+```bash
+python -m scripts.seed_demo
+```
+
+Crea 10 usuarios ficticios (`...@ejemplo.com`), idempotente. Todos comparten
+la contrasena demo `Demo#2026!` para que quien revise el proyecto pueda
+iniciar sesion. Nunca usar en despliegues con datos reales.
 
 ---
 
@@ -267,7 +320,7 @@ clientevalidacion/
 |   |   |-- limiter.py        # Instancia de Rate Limiting
 |   |   |-- logging.py        # Logging estructurado
 |   |   |-- seguridad.py      # Generacion y verificacion de JWT
-|   |   `-- excepciones/      # Excepciones de dominio y middleware
+|   |   `-- excepciones/      # Excepciones de dominio (handlers nativos en main.py)
 |   |-- db/
 |   |   |-- base_class.py     # Clase base ORM (UUID, marcas temporales, soft delete)
 |   |   `-- registro.py

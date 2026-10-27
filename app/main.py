@@ -4,7 +4,7 @@ Punto de entrada principal de la aplicación FastAPI.
 Configura la instancia de FastAPI con:
 - Ciclo de vida (lifespan) para inicialización y limpieza.
 - Middleware CORS parametrizado desde la configuración.
-- Middleware de captura global de excepciones.
+- Manejadores globales de excepciones (nativos de FastAPI).
 - Gestión del motor de base de datos asíncrono.
 - Endpoint de salud (/health).
 - Metadatos OpenAPI enriquecidos (tags, contacto, licencia).
@@ -22,9 +22,10 @@ from slowapi.errors import RateLimitExceeded
 from app.api.v1.router import api_v1_router
 from app.core.config import obtener_configuracion
 from app.core.database import motor_asincrono
-from app.core.excepciones.middleware import MiddlewareExcepciones
+from app.core.excepciones.excepciones import ExcepcionBase
 from app.core.limiter import limiter
 from app.core.logging import configurar_logging, obtener_logger
+from app.core.seguridad import CABECERA_CSRF, NOMBRE_COOKIE_AUTH, VALOR_CSRF_ESPERADO
 from app.esquemas.salud import RespuestaSalud
 
 _config = obtener_configuracion()
@@ -78,7 +79,8 @@ async def ciclo_de_vida(app: FastAPI) -> AsyncIterator[None]:
         _config.app_nombre,
         _config.app_version,
     )
-    _logger.info("Motor de base de datos configurado: %s", _config.bd_url)
+    # Solo el dialecto/driver: la URL puede contener credenciales (p. ej. Postgres)
+    _logger.info("Motor de base de datos configurado: %s", _config.bd_url.split("://")[0])
     yield
     # --- Cierre ---
     await motor_asincrono.dispose()
@@ -127,8 +129,91 @@ async def _manejador_limite_peticiones(
     )
 
 
-# --- Middleware de excepciones globales ---
-app.add_middleware(MiddlewareExcepciones)
+# --- Manejadores globales de excepciones (nativos de FastAPI) ---
+
+
+@app.exception_handler(ExcepcionBase)
+async def _manejador_excepciones_dominio(
+    request: Request,
+    exc: ExcepcionBase,
+) -> JSONResponse:
+    """Convierte las excepciones de dominio en respuestas JSON consistentes."""
+    _logger.warning(
+        "Excepción de dominio — %s %s — %d: %s",
+        request.method,
+        request.url.path,
+        exc.codigo_estado,
+        exc.mensaje,
+    )
+    return JSONResponse(
+        status_code=exc.codigo_estado,
+        content={
+            "exito": False,
+            "error": exc.mensaje,
+            "detalles": exc.detalles,
+        },
+    )
+
+
+@app.exception_handler(Exception)
+async def _manejador_excepciones_no_controladas(
+    request: Request,
+    exc: Exception,
+) -> JSONResponse:
+    """Captura cualquier excepción no controlada y devuelve un 500 genérico."""
+    _logger.error(
+        "Excepción no controlada — %s %s — %s: %s",
+        request.method,
+        request.url.path,
+        type(exc).__name__,
+        str(exc),
+        exc_info=True,
+    )
+    return JSONResponse(
+        status_code=500,
+        content={
+            "exito": False,
+            "error": "Error interno del servidor",
+            "detalles": {},
+        },
+    )
+
+
+# --- Middleware anti-CSRF ---
+# Las mutaciones autenticadas por cookie (sin cabecera Authorization) deben
+# llevar la cabecera X-Requested-With: un navegador no la puede enviar en
+# peticiones cross-site simples. Con SameSite=Lax + esta cabecera, un sitio
+# ajeno no puede ejecutar acciones en nombre del usuario autenticado.
+_METODOS_SEGUROS = {"GET", "HEAD", "OPTIONS"}
+# Rutas que no dependen de la cookie para autenticar: login y registro son
+# puntos de entrada públicos y logout es inofensivo (borra la cookie).
+_RUTAS_EXENTAS_CSRF = {
+    "/api/v1/auth/login",
+    "/api/v1/auth/logout",
+    "/api/v1/usuarios",  # POST de registro es público
+}
+
+
+@app.middleware("http")
+async def _middleware_csrf(request: Request, call_next):  # type: ignore[no-untyped-def]
+    """Exige X-Requested-With en mutaciones autenticadas por cookie."""
+    if (
+        request.method not in _METODOS_SEGUROS
+        and request.url.path not in _RUTAS_EXENTAS_CSRF
+        and "authorization" not in request.headers
+        and NOMBRE_COOKIE_AUTH in request.cookies
+        and request.headers.get(CABECERA_CSRF) != VALOR_CSRF_ESPERADO
+    ):
+        return JSONResponse(
+            status_code=403,
+            content={
+                "exito": False,
+                "error": f"Falta la cabecera {CABECERA_CSRF} (protección CSRF).",
+                "detalles": {},
+            },
+        )
+    return await call_next(request)
+
 
 # --- Middleware CORS ---
 app.add_middleware(

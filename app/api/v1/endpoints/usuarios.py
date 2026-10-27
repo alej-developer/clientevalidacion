@@ -8,18 +8,53 @@ paginación, filtros tipados, documentación OpenAPI y respuestas tipadas.
 import uuid
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, Path, Query, status
+from fastapi import APIRouter, Depends, Path, Query, Request, Response, status
+from fastapi.security import OAuth2PasswordBearer
+from jose import JWTError
 
 from app.api.deps import obtener_servicio_usuario, obtener_usuario_actual
+from app.core.config import obtener_configuracion
+from app.core.excepciones.excepciones import ProhibidoError
+from app.core.limiter import limiter
+from app.core.seguridad import decodificar_token
 from app.esquemas.usuario import (
     ActualizarUsuario,
     CrearUsuario,
-    RespuestaListaUsuarios,
+    RespuestaListaUsuariosPublica,
     RespuestaUsuario,
+    RespuestaUsuarioPublica,
 )
 from app.servicios.usuario import ServicioUsuario
 
 router = APIRouter(prefix="/usuarios", tags=["Usuarios"])
+
+_config = obtener_configuracion()
+
+# Bearer opcional: si el dueño consulta su propio detalle con token,
+# recibe la vista completa (con email); sin token, la vista pública.
+_oauth2_opcional = OAuth2PasswordBearer(
+    tokenUrl="/api/v1/auth/login",
+    auto_error=False,
+)
+
+
+def _verificar_propiedad(usuario_id: uuid.UUID, usuario_actual: RespuestaUsuario) -> None:
+    """
+    Exige que el usuario autenticado actúe sobre su propia cuenta.
+
+    Autorización por propiedad: cada usuario solo puede modificar, borrar
+    o restaurar su propio registro. Punto de extensión para un futuro
+    rol administrador que pueda operar sobre cualquier cuenta.
+
+    Args:
+        usuario_id: UUID del usuario objetivo de la operación.
+        usuario_actual: Usuario autenticado dueño del token JWT.
+
+    Raises:
+        ProhibidoError: Si el objetivo no es la propia cuenta (HTTP 403).
+    """
+    if usuario_actual.id != usuario_id:
+        raise ProhibidoError(mensaje="Solo puedes gestionar tu propia cuenta.")
 
 
 @router.post(
@@ -37,9 +72,13 @@ router = APIRouter(prefix="/usuarios", tags=["Usuarios"])
         400: {"description": "Petición incorrecta o datos inválidos"},
         409: {"description": "Conflicto: El email ya está registrado"},
         422: {"description": "Error de validación en los campos enviados"},
+        429: {"description": "Demasiadas peticiones consecutivas (Rate Limit)"},
     },
 )
+@limiter.limit(_config.limite_auth)
 async def crear_usuario(
+    request: Request,
+    response: Response,
     datos: CrearUsuario,
     servicio: Annotated[ServicioUsuario, Depends(obtener_servicio_usuario)],
 ) -> RespuestaUsuario:
@@ -49,12 +88,13 @@ async def crear_usuario(
 
 @router.get(
     "",
-    response_model=RespuestaListaUsuarios,
+    response_model=RespuestaListaUsuariosPublica,
     status_code=status.HTTP_200_OK,
     summary="Listar usuarios paginados",
     description=(
         "Devuelve un listado paginado de usuarios con soporte para búsqueda por texto "
-        "(nombre o email), filtrado por estado de activación y ordenación personalizada."
+        "(nombre o email), filtrado por estado de activación y ordenación personalizada. "
+        "Vista pública: no incluye emails (API abierta de portafolio)."
     ),
     responses={
         200: {"description": "Lista de usuarios recuperada exitosamente"},
@@ -93,7 +133,7 @@ async def listar_usuarios(
         str,
         Query(description="Dirección de la ordenación ('asc' o 'desc')", pattern="^(asc|desc)$"),
     ] = "desc",
-) -> RespuestaListaUsuarios:
+) -> RespuestaListaUsuariosPublica:
     """Devuelve la lista paginada y filtrada de usuarios."""
     return await servicio.listar_usuarios(
         pagina=pagina,
@@ -107,12 +147,16 @@ async def listar_usuarios(
 
 @router.get(
     "/{usuario_id}",
-    response_model=RespuestaUsuario,
+    response_model=None,
     status_code=status.HTTP_200_OK,
     summary="Obtener usuario por ID",
-    description="Recupera la información detallada de un usuario por su identificador UUID.",
+    description=(
+        "Recupera la información de un usuario por su identificador UUID. "
+        "Vista pública sin email; si el propio usuario se autentica con su "
+        "token Bearer, recibe su vista completa (con email)."
+    ),
     responses={
-        200: {"description": "Usuario encontrado"},
+        200: {"description": "Usuario encontrado (vista pública o completa si es el propietario)"},
         404: {"description": "Usuario no encontrado"},
         422: {"description": "Formato de UUID inválido"},
     },
@@ -120,9 +164,23 @@ async def listar_usuarios(
 async def obtener_usuario(
     usuario_id: Annotated[uuid.UUID, Path(description="UUID único del usuario")],
     servicio: Annotated[ServicioUsuario, Depends(obtener_servicio_usuario)],
-) -> RespuestaUsuario:
-    """Busca y retorna un usuario por su ID."""
-    return await servicio.obtener_usuario(usuario_id)
+    token: Annotated[str | None, Depends(_oauth2_opcional)] = None,
+) -> RespuestaUsuario | RespuestaUsuarioPublica:
+    """
+    Busca y retorna un usuario por su ID.
+
+    - Sin token (o token de otro usuario): vista pública, sin email.
+    - Con el token del propio usuario: vista completa, con email.
+    """
+    usuario = await servicio.obtener_usuario(usuario_id)
+    if token is not None:
+        try:
+            payload = decodificar_token(token)
+            if payload.get("sub") == str(usuario_id):
+                return usuario
+        except JWTError:
+            pass  # Token inválido: se sirve la vista pública
+    return RespuestaUsuarioPublica.model_validate(usuario)
 
 
 @router.patch(
@@ -136,6 +194,7 @@ async def obtener_usuario(
     ),
     responses={
         200: {"description": "Usuario actualizado exitosamente"},
+        403: {"description": "Prohibido: solo puedes modificar tu propia cuenta"},
         404: {"description": "Usuario no encontrado"},
         409: {"description": "Conflicto: El nuevo email ya está en uso"},
         422: {"description": "Error de validación en los campos enviados"},
@@ -145,9 +204,10 @@ async def actualizar_usuario(
     usuario_id: Annotated[uuid.UUID, Path(description="UUID único del usuario")],
     datos: ActualizarUsuario,
     servicio: Annotated[ServicioUsuario, Depends(obtener_servicio_usuario)],
-    _: Annotated[RespuestaUsuario, Depends(obtener_usuario_actual)],
+    usuario_actual: Annotated[RespuestaUsuario, Depends(obtener_usuario_actual)],
 ) -> RespuestaUsuario:
-    """Actualiza parcialmente los datos de un usuario."""
+    """Actualiza parcialmente los datos de un usuario (solo la propia cuenta)."""
+    _verificar_propiedad(usuario_id=usuario_id, usuario_actual=usuario_actual)
     return await servicio.actualizar_usuario(usuario_id=usuario_id, datos=datos)
 
 
@@ -163,6 +223,7 @@ async def actualizar_usuario(
     responses={
         204: {"description": "Usuario marcado como eliminado exitosamente"},
         401: {"description": "No autorizado"},
+        403: {"description": "Prohibido: solo puedes eliminar tu propia cuenta"},
         404: {"description": "Usuario no encontrado"},
         422: {"description": "Formato de UUID inválido"},
     },
@@ -170,9 +231,10 @@ async def actualizar_usuario(
 async def eliminar_usuario(
     usuario_id: Annotated[uuid.UUID, Path(description="UUID único del usuario")],
     servicio: Annotated[ServicioUsuario, Depends(obtener_servicio_usuario)],
-    _: Annotated[RespuestaUsuario, Depends(obtener_usuario_actual)],
+    usuario_actual: Annotated[RespuestaUsuario, Depends(obtener_usuario_actual)],
 ) -> None:
-    """Realiza el borrado lógico (soft delete) de un usuario."""
+    """Realiza el borrado lógico (soft delete) de un usuario (solo la propia cuenta)."""
+    _verificar_propiedad(usuario_id=usuario_id, usuario_actual=usuario_actual)
     await servicio.eliminar_usuario(usuario_id)
 
 
@@ -188,6 +250,7 @@ async def eliminar_usuario(
     responses={
         200: {"description": "Usuario restaurado exitosamente"},
         401: {"description": "No autorizado"},
+        403: {"description": "Prohibido: solo puedes restaurar tu propia cuenta"},
         404: {"description": "No existe un usuario eliminado con ese ID"},
         422: {"description": "Formato de UUID inválido"},
     },
@@ -195,7 +258,8 @@ async def eliminar_usuario(
 async def restaurar_usuario(
     usuario_id: Annotated[uuid.UUID, Path(description="UUID del usuario eliminado a restaurar")],
     servicio: Annotated[ServicioUsuario, Depends(obtener_servicio_usuario)],
-    _: Annotated[RespuestaUsuario, Depends(obtener_usuario_actual)],
+    usuario_actual: Annotated[RespuestaUsuario, Depends(obtener_usuario_actual)],
 ) -> RespuestaUsuario:
-    """Restaura un usuario marcado con soft delete."""
+    """Restaura un usuario marcado con soft delete (solo la propia cuenta)."""
+    _verificar_propiedad(usuario_id=usuario_id, usuario_actual=usuario_actual)
     return await servicio.restaurar_usuario(usuario_id)

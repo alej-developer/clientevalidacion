@@ -10,10 +10,12 @@ import hashlib
 import secrets
 import uuid
 
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.excepciones.excepciones import (
     ConflictoError,
+    NoAutorizadoError,
     NoEncontradoError,
     ValidacionError,
 )
@@ -21,13 +23,18 @@ from app.core.logging import obtener_logger
 from app.esquemas.usuario import (
     ActualizarUsuario,
     CrearUsuario,
-    RespuestaListaUsuarios,
+    RespuestaListaUsuariosPublica,
     RespuestaUsuario,
+    RespuestaUsuarioPublica,
 )
 from app.modelos.usuario import Usuario
 from app.repositorios.usuario import RepositorioUsuario
 
 _logger = obtener_logger("servicio.usuario")
+
+# Hash ficticio (formato 'salt:hash') para igualar el tiempo de respuesta
+# cuando el email no existe: evita la enumeración de cuentas por timing.
+_HASH_DUMMY = "0" * 64 + ":" + "0" * 64
 
 
 class ServicioUsuario:
@@ -131,8 +138,16 @@ class ServicioUsuario:
             "esta_activo": True,
         }
 
-        usuario = await self._repositorio.crear(datos_creacion)
-        _logger.info("Usuario creado exitosamente: %s (ID: %s)", usuario.email, usuario.id)
+        try:
+            usuario = await self._repositorio.crear(datos_creacion)
+        except IntegrityError:
+            # Carrera: otro request creó el mismo email entre existe_email y el flush.
+            # El índice único parcial de la BD lo rechaza; se traduce a 409.
+            raise ConflictoError(
+                mensaje=f"El email '{datos.email}' ya está registrado.",
+                detalles={"campo": "email", "valor": datos.email},
+            )
+        _logger.info("Usuario creado exitosamente (ID: %s)", usuario.id)
 
         return RespuestaUsuario.model_validate(usuario)
 
@@ -187,9 +202,12 @@ class ServicioUsuario:
         esta_activo: bool | None = None,
         ordenar_por: str = "creado_en",
         orden: str = "desc",
-    ) -> RespuestaListaUsuarios:
+    ) -> RespuestaListaUsuariosPublica:
         """
         Lista usuarios con paginación, filtros de búsqueda y ordenación.
+
+        Devuelve la vista pública (sin email): la API es abierta a
+        propósito (portafolio) y no expone datos de contacto.
 
         Args:
             pagina: Número de página (mínimo 1).
@@ -243,8 +261,8 @@ class ServicioUsuario:
             por_pagina=por_pagina,
         )
 
-        return RespuestaListaUsuarios(
-            elementos=[RespuestaUsuario.model_validate(u) for u in usuarios],
+        return RespuestaListaUsuariosPublica(
+            elementos=[RespuestaUsuarioPublica.model_validate(u) for u in usuarios],
             total=total,
             pagina=pagina,
             por_pagina=por_pagina,
@@ -308,8 +326,15 @@ class ServicioUsuario:
             _logger.debug("Actualización sin cambios para usuario ID %s", usuario_id)
             return RespuestaUsuario.model_validate(usuario)
 
-        usuario_actualizado = await self._repositorio.actualizar(usuario, datos_actualizacion)
-        _logger.info("Usuario actualizado: %s (ID: %s)", usuario_actualizado.email, usuario_id)
+        try:
+            usuario_actualizado = await self._repositorio.actualizar(usuario, datos_actualizacion)
+        except IntegrityError:
+            # Carrera al cambiar el email: el índice único parcial lo rechaza; se traduce a 409.
+            raise ConflictoError(
+                mensaje=f"El email '{datos.email}' ya está en uso por otro usuario.",
+                detalles={"campo": "email", "valor": datos.email},
+            )
+        _logger.info("Usuario actualizado (ID: %s)", usuario_id)
 
         return RespuestaUsuario.model_validate(usuario_actualizado)
 
@@ -336,7 +361,7 @@ class ServicioUsuario:
             )
 
         await self._repositorio.eliminar(usuario)
-        _logger.info("Usuario eliminado (soft): %s (ID: %s)", usuario.email, usuario_id)
+        _logger.info("Usuario eliminado, soft delete (ID: %s)", usuario_id)
 
     async def restaurar_usuario(self, usuario_id: uuid.UUID) -> RespuestaUsuario:
         """
@@ -362,7 +387,7 @@ class ServicioUsuario:
             )
 
         usuario_restaurado = await self._repositorio.restaurar(usuario)
-        _logger.info("Usuario restaurado: %s (ID: %s)", usuario_restaurado.email, usuario_id)
+        _logger.info("Usuario restaurado (ID: %s)", usuario_id)
         return RespuestaUsuario.model_validate(usuario_restaurado)
 
     async def verificar_credenciales(self, email: str, contrasena: str) -> Usuario:
@@ -377,27 +402,24 @@ class ServicioUsuario:
             La instancia del modelo Usuario si las credenciales son válidas.
 
         Raises:
-            NoEncontradoError: Si el usuario no existe.
-            ValidacionError: Si la contraseña es incorrecta o la cuenta está desactivada.
+            NoAutorizadoError: Si las credenciales son inválidas (mismo 401
+                genérico para email inexistente, contraseña incorrecta o
+                cuenta desactivada, para no permitir enumerar cuentas).
         """
         usuario = await self._repositorio.obtener_por_email(email)
         if usuario is None:
-            raise NoEncontradoError(
-                mensaje="Credenciales inválidas.",
-                detalles={"campo": "email"},
-            )
+            # Hash ficticio para que la respuesta tarde lo mismo que con
+            # contraseña incorrecta (anti-enumeración por timing).
+            self._verificar_contrasena(contrasena, _HASH_DUMMY)
+            raise NoAutorizadoError(mensaje="Credenciales inválidas.")
 
         if not usuario.esta_activo:
-            raise ValidacionError(
-                mensaje="La cuenta del usuario está desactivada.",
-                detalles={"campo": "esta_activo", "valor": False},
-            )
+            # Misma respuesta genérica: no revelar ni la existencia ni el
+            # estado de la cuenta por esta vía.
+            raise NoAutorizadoError(mensaje="Credenciales inválidas.")
 
         if not self._verificar_contrasena(contrasena, usuario.contrasena_hash):
-            raise ValidacionError(
-                mensaje="Credenciales inválidas.",
-                detalles={"campo": "contrasena"},
-            )
+            raise NoAutorizadoError(mensaje="Credenciales inválidas.")
 
-        _logger.info("Credenciales verificadas para usuario: %s", email)
+        _logger.info("Credenciales verificadas (ID: %s)", usuario.id)
         return usuario
