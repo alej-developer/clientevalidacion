@@ -95,7 +95,6 @@ jobs:
           JWT_SECRETO="${JWT_SECRETO}"
           JWT_EXPIRACION_MINUTOS=60
           JWT_REFRESH_EXPIRACION_DIAS=30
-          COOKIE_SEGURA=false
           LIMITE_POR_DEFECTO="60/minute"
           LIMITE_AUTH="10/minute"
           LOG_NIVEL="WARNING"
