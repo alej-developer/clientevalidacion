@@ -1,9 +1,9 @@
 """
-Tests de hardening de configuración y logging (PR 5 del plan).
+Tests de hardening de configuración y logging.
 
-Cubre: rechazo del JWT_SECRETO por defecto en producción, cabeceras
-X-RateLimit visibles, ausencia de PII (emails) en los logs y la
-validación de contraseña compartida entre esquemas.
+Cubre: JWT_SECRETO obligatorio (también en debug, sin valor público por
+defecto), cabeceras X-RateLimit visibles, ausencia de PII (emails) en los
+logs y la validación de contraseña compartida entre esquemas.
 """
 
 import logging
@@ -12,14 +12,14 @@ import pytest
 from httpx import AsyncClient
 from pydantic import ValidationError
 
-from app.core.config import JWT_SECRETO_POR_DEFECTO, Configuracion
+from app.core.config import Configuracion
 from app.esquemas.usuario import ActualizarUsuario, CrearUsuario
 
 
-def test_config_rechaza_secreto_por_defecto_en_produccion() -> None:
-    """APP_DEBUG=false + JWT_SECRETO por defecto: la configuración falla."""
+def test_config_rechaza_secreto_vacio_en_produccion() -> None:
+    """APP_DEBUG=false + JWT_SECRETO vacío: la configuración falla."""
     with pytest.raises(ValidationError, match="JWT_SECRETO"):
-        Configuracion(app_debug=False, jwt_secreto=JWT_SECRETO_POR_DEFECTO)
+        Configuracion(app_debug=False, jwt_secreto="   ")
 
 
 def test_config_acepta_secreto_fuerte_en_produccion() -> None:
@@ -28,9 +28,14 @@ def test_config_acepta_secreto_fuerte_en_produccion() -> None:
     assert config.jwt_secreto.startswith("secreto-fuerte")
 
 
-def test_config_permite_secreto_por_defecto_en_debug() -> None:
-    """APP_DEBUG=true permite el secreto por defecto (desarrollo local)."""
-    config = Configuracion(app_debug=True, jwt_secreto=JWT_SECRETO_POR_DEFECTO)
+def test_config_rechaza_secreto_vacio_tambien_en_debug() -> None:
+    """APP_DEBUG=true tampoco admite un secreto vacío: no hay valor por defecto."""
+    with pytest.raises(ValidationError, match="JWT_SECRETO"):
+        Configuracion(app_debug=True, jwt_secreto="   ")
+    config = Configuracion(
+        app_debug=True,
+        jwt_secreto="secreto-de-desarrollo-definido-por-el-usuario",
+    )
     assert config.app_debug is True
 
 

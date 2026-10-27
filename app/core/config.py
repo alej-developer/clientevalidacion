@@ -8,11 +8,8 @@ de entorno necesarias. Carga automáticamente desde el archivo .env.
 from functools import lru_cache
 from typing import Any
 
-from pydantic import field_validator, model_validator
+from pydantic import field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
-
-# Valor por defecto del secreto JWT (público, solo válido en desarrollo)
-JWT_SECRETO_POR_DEFECTO = "cambia-esto-en-produccion-con-un-secreto-fuerte-de-32-chars"
 
 
 class Configuracion(BaseSettings):
@@ -53,8 +50,8 @@ class Configuracion(BaseSettings):
     cors_origenes: list[str] = ["http://localhost:3000", "http://localhost:5173"]
 
     # --- JWT ---
-    jwt_secreto: str = JWT_SECRETO_POR_DEFECTO
-
+    # Obligatorio: sin JWT_SECRETO (o si está vacío) la aplicación no arranca.
+    jwt_secreto: str
     jwt_expiracion_minutos: int = 60
     # Duración del refresh token en días
     jwt_refresh_expiracion_dias: int = 30
@@ -67,22 +64,14 @@ class Configuracion(BaseSettings):
     # --- Logging ---
     log_nivel: str = "INFO"
 
-    @model_validator(mode="after")
-    def validar_secreto_jwt_en_produccion(self) -> "Configuracion":
-        """
-        Impide arrancar en modo producción con el secreto JWT por defecto.
-
-        El valor por defecto es público (está en el repositorio): con
-        APP_DEBUG=false cualquiera podría firmar tokens válidos. En
-        desarrollo (APP_DEBUG=true) se permite para no pedir .env.
-        """
-        if not self.app_debug and self.jwt_secreto == JWT_SECRETO_POR_DEFECTO:
-            msg = (
-                "JWT_SECRETO tiene el valor por defecto (público) y APP_DEBUG=false. "
-                "Define un secreto fuerte en .env antes de arrancar en producción."
-            )
+    @field_validator("jwt_secreto")
+    @classmethod
+    def validar_jwt_secreto(cls, valor: str) -> str:
+        """Rechaza un secreto vacío para que la aplicación no arranque sin clave."""
+        if not valor.strip():
+            msg = "JWT_SECRETO es obligatorio y no puede estar vacío"
             raise ValueError(msg)
-        return self
+        return valor
 
     @field_validator("log_nivel")
     @classmethod
@@ -132,4 +121,5 @@ def obtener_configuracion() -> Configuracion:
     Retorna:
         Instancia única de Configuracion con las variables de entorno cargadas.
     """
-    return Configuracion()
+    # JWT_SECRETO y el resto llegan por el entorno; si falta, pydantic no arranca.
+    return Configuracion()  # type: ignore[call-arg]

@@ -118,9 +118,16 @@ async def test_mutacion_con_bearer_no_exige_cabecera_csrf(
 
 def test_cookie_segura_se_resuelve_por_entorno(monkeypatch) -> None:  # type: ignore[no-untyped-def]
     """Secure por defecto fuera de debug; explícita si COOKIE_SEGURA se define."""
-    # El conftest fija COOKIE_SEGURA=false; lo aislamos para probar la lógica.
+    # El conftest fija COOKIE_SEGURA=false. El .env de CI no debe colarse:
+    # esta prueba mira el valor por defecto, no el archivo de entorno.
     monkeypatch.delenv("COOKIE_SEGURA", raising=False)
-    assert _cookie_segura_efectiva(Configuracion(app_debug=False)) is True
-    assert _cookie_segura_efectiva(Configuracion(app_debug=True)) is False
-    assert _cookie_segura_efectiva(Configuracion(app_debug=False, cookie_segura=False)) is False
-    assert _cookie_segura_efectiva(Configuracion(app_debug=True, cookie_segura=True)) is True
+    assert _cookie_segura_efectiva(Configuracion(_env_file=None, app_debug=False)) is True
+    assert _cookie_segura_efectiva(Configuracion(_env_file=None, app_debug=True)) is False
+    assert (
+        _cookie_segura_efectiva(Configuracion(_env_file=None, app_debug=False, cookie_segura=False))
+        is False
+    )
+    assert (
+        _cookie_segura_efectiva(Configuracion(_env_file=None, app_debug=True, cookie_segura=True))
+        is True
+    )
