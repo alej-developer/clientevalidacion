@@ -83,14 +83,19 @@ jobs:
 
       - name: Crear archivo .env para pruebas
         run: |
-          cat > .env << 'EOF'
+          # Secreto efímero: Alembic importa la config y JWT_SECRETO es obligatorio.
+          # No se publica un valor fijo en el workflow.
+          JWT_SECRETO="$(python -c 'import secrets; print(secrets.token_urlsafe(48))')"
+          cat > .env << EOF
           APP_NOMBRE="ClienteValidacion API"
           APP_VERSION="0.2.0"
           APP_DEBUG=false
           BD_URL="sqlite+aiosqlite:///./test_ci.db"
           CORS_ORIGENES='["http://localhost:3000"]'
-          JWT_SECRETO="clave-secreta-para-ci-cd-de-32-caracteres-minimo"
+          JWT_SECRETO="${JWT_SECRETO}"
           JWT_EXPIRACION_MINUTOS=60
+          JWT_REFRESH_EXPIRACION_DIAS=30
+          COOKIE_SEGURA=false
           LIMITE_POR_DEFECTO="60/minute"
           LIMITE_AUTH="10/minute"
           LOG_NIVEL="WARNING"
